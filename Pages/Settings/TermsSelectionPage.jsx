@@ -20,7 +20,8 @@ import {
   deleteTerms,
 } from "../../SqlSetup/db.jsx";
 import useEstimateStore from "../../zustandStore/ZustandStore";
-import { useNavigation } from "@react-navigation/native";
+import useInvoiceStore from "../../zustandStore/InvoiceStore";
+import { useNavigation, useRoute } from "@react-navigation/native";
 
 const { height } = Dimensions.get("window");
 
@@ -48,15 +49,12 @@ const TermsModal = ({ visible, onClose, onSave, initialData }) => {
 
   const handleSave = async () => {
     if (initialData) {
-      // Update existing term
-      console.log("Updating term:", initialData);
-      await updateTerms(description, initialData.termsAndConditions); // Pass the old term and the new description
+      await updateTerms(description, initialData.termsAndConditions);
     } else {
-      // Insert new term
       await insertTerms(description);
     }
     onSave();
-    setDescription(""); // Clear input after saving
+    setDescription("");
   };
 
   return (
@@ -100,11 +98,17 @@ const TermsModal = ({ visible, onClose, onSave, initialData }) => {
 };
 
 const TermsSelectionPage = () => {
-  const { setTerms } = useEstimateStore();
-  const [modalVisible, setModalVisible] = useState(false);
-  const [terms_condti, setTerms_condi] = useState([]);
-  const [editingTerm, setEditingTerm] = useState(null);
   const navigation = useNavigation();
+  const route = useRoute();
+  const { source } = route.params || {}; // Get 'source' safely
+  console.log("Source:", source); // Debugging: Check what value 'source' has
+
+  const { setTerms: setEstimateTerms } = useEstimateStore();
+  const { setTerms: setInvoiceTerms } = useInvoiceStore();
+
+  const [modalVisible, setModalVisible] = useState(false);
+  const [terms_condi, setTerms_condi] = useState([]);
+  const [editingTerm, setEditingTerm] = useState(null);
 
   useEffect(() => {
     fetchTerms();
@@ -131,6 +135,15 @@ const TermsSelectionPage = () => {
     fetchTerms();
   };
 
+  const handleTermsSelect = (term) => {
+    if (source === "invoice") {
+      setInvoiceTerms(term.termsAndConditions);
+    } else {
+      setEstimateTerms(term.termsAndConditions);
+    }
+    navigation.goBack();
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <Text style={styles.title}>Terms & Conditions</Text>
@@ -142,23 +155,13 @@ const TermsSelectionPage = () => {
       </View>
       <Text style={styles.subtitle}>Terms & Conditions List</Text>
       <ScrollView showsVerticalScrollIndicator={false}>
-        {terms_condti.map((term, Index) => (
+        {terms_condi.map((term, Index) => (
           <TouchableOpacity
             key={Index}
             style={styles.card}
-            onPress={() => {
-              setTerms(term.termsAndConditions);
-              navigation.goBack();
-            }}
+            onPress={() => handleTermsSelect(term)}
           >
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 10,
-                width: "80%",
-              }}
-            >
+            <View style={styles.termsContainer}>
               <Text style={styles.text}>{term.termsAndConditions}</Text>
             </View>
             <View style={styles.iconContainer}>
@@ -190,19 +193,8 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
     backgroundColor: "#F5F5F5",
   },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#333",
-    marginBottom: 10,
-  },
-  subtitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: "#555",
-    marginTop: 20,
-    marginBottom: 10,
-  },
+  title: { fontSize: 24, fontWeight: "bold", color: "#333", marginBottom: 10 },
+  subtitle: { fontSize: 20, fontWeight: "600", color: "#555", marginTop: 20 },
   card: {
     flexDirection: "row",
     alignItems: "center",
@@ -214,31 +206,11 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: "#ddd",
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    elevation: 1,
   },
-  createBtn: {
-    backgroundColor: "#3567E4",
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 10,
-  },
-  text: {
-    fontSize: 16,
-    fontWeight: "500",
-  },
-  btntxt: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  iconContainer: {
-    flexDirection: "row",
-    gap: 10,
-  },
+  createBtn: { backgroundColor: "#3567E4", padding: 10, borderRadius: 10 },
+  text: { fontSize: 16, fontWeight: "500" },
+  btntxt: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  iconContainer: { flexDirection: "row", gap: 10 },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.5)",
@@ -257,21 +229,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 20,
   },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#333",
-  },
-  input: {
-    width: "100%",
-    height: 50,
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 10,
-    paddingHorizontal: 15,
-    marginBottom: 15,
-    fontSize: 16,
-  },
+  modalTitle: { fontSize: 20, fontWeight: "bold", color: "#333" },
   textArea: {
     width: "100%",
     borderWidth: 1,
@@ -284,16 +242,12 @@ const styles = StyleSheet.create({
   },
   saveBtn: {
     backgroundColor: "#3567E4",
-    paddingVertical: 15,
+    padding: 15,
     borderRadius: 10,
     alignItems: "center",
     marginTop: 10,
   },
-  saveBtnText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
+  saveBtnText: { color: "#fff", fontSize: 16, fontWeight: "600" },
 });
 
 export default TermsSelectionPage;

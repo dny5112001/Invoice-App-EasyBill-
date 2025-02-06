@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import { useCallback, useState } from "react";
 import {
+  Alert,
   Dimensions,
   Keyboard,
   KeyboardAvoidingView,
@@ -16,44 +17,199 @@ import {
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import Icon from "react-native-vector-icons/Entypo";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
+import {
+  getIndividualInvoice,
+  saveInvoiceToDb,
+  getMainBusiness,
+} from "../../SqlSetup/db";
+import useInvoiceStore from "../../zustandStore/InvoiceStore";
+import { Pressable } from "react-native";
 
 const InvoiceCreationPage = () => {
   const navigation = useNavigation();
-  const [creationDate, setCreationDate] = useState(new Date());
-  const [dueDate, setDueDate] = useState(() => {
-    const currentDate = new Date();
-    const due = new Date(currentDate);
-    due.setDate(due.getDate() + 7); // Add 7 days
-    return due;
-  });
 
   const [showCreationPicker, setShowCreationPicker] = useState(false);
   const [showDuePicker, setShowDuePicker] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [selectedStatus, setSelectedStatus] = useState("Unpaid");
-  const [partialAmount, setPartialAmount] = useState(0);
   const [discountModal, setDiscountModal] = useState(false);
   const [shippingModal, setShippingModal] = useState(false);
-  const [discountType, setDiscountType] = useState("Percentage");
-  const [discountValue, setDiscountValue] = useState("");
-  const [shippingAmount, setShippingAmount] = useState(0);
+
+  const {
+    invoiceNumber,
+    setInvoiceNumber,
+    creationDate,
+    setCreationDate,
+    dueDate,
+    setDueDate,
+    businessName,
+    setBusinessName,
+    clientEmail,
+    setClientEmail,
+    discountType,
+    setDiscountType,
+    discount,
+    setDiscount,
+    taxName,
+    setTaxName,
+    taxRate,
+    setTaxRate,
+    shippingAmount,
+    setShippingAmount,
+    items,
+    setItems,
+    subTotal,
+    totalAmount,
+    terms,
+    signatureName,
+    signatureImage,
+    status,
+    setStatus,
+    paymentMethod,
+    setPaymentMethod,
+    partiallyPaid,
+    setPartiallyPaid,
+  } = useInvoiceStore();
 
   const formatDate = (date) => {
-    return date.toISOString().split("T")[0]; // Format: YYYY-MM-DD
+    if (!date) return ""; // Handle null/undefined input
+
+    const parsedDate = new Date(date); // Ensure it's a Date object
+    if (isNaN(parsedDate.getTime())) return ""; // Handle invalid dates
+
+    return parsedDate.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
   };
 
-  const handleSave = () => {
-    // Handle saving the updated status and partial amount here
-    console.log("Updated Status:", selectedStatus);
-    if (selectedStatus === "Partially Paid") {
-      console.log("Partial Amount:", partialAmount);
+  const handleSave = async () => {
+    if (invoiceNumber == "") {
+      alert("Please enter an invoice number");
+      return;
     }
-    setIsModalVisible(false);
+
+    if (clientEmail == "") {
+      alert("Please enter a client email");
+      return;
+    }
+    const checkInvoice = await getIndividualInvoice(invoiceNumber);
+    if (checkInvoice.length > 0) {
+      console.log(checkInvoice);
+      alert("Invoice already exists");
+      return;
+    }
+
+    const invoiceData = {
+      invoiceNumber,
+      creationDate,
+      dueDate,
+      businessName,
+      clientEmail,
+      items,
+      subTotal,
+      discountType,
+      discount,
+      taxName,
+      taxRate,
+      shippingAmount,
+      totalAmount,
+      signatureName,
+      signatureImage,
+      terms,
+      paymentMethod,
+      status,
+      partiallyPaid,
+    };
+
+    const saveData = await saveInvoiceToDb(invoiceData);
+    console.log(saveData);
+    if (saveData) {
+      alert("Invoice saved successfully");
+      return;
+    }
+    alert("Failed to save invoice");
   };
 
   const { width } = Dimensions.get("window");
+  const [mainBusiness, setMainBusiness] = useState(null);
+
+  const fetchMainBusiness = useCallback(async () => {
+    try {
+      const result = await getMainBusiness();
+      if (result) {
+        console.log(result);
+        setMainBusiness(result[0]);
+      }
+    } catch (error) {
+      console.error("Error fetching main business:", error);
+    }
+  }, []);
+
+  // Fetch data when the screen is focused (on every revisit)
+  useFocusEffect(
+    useCallback(() => {
+      fetchMainBusiness(); // Triggered when the screen is focused
+    }, [])
+  );
+
+  const confirmDeleteItem = (itemName, itemIndex) => {
+    Alert.alert(
+      "Delete Item",
+      "Are you sure you want to delete this item?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Delete",
+          onPress: () => deleteItem(itemName, itemIndex),
+          style: "destructive",
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  const deleteItem = (itemName, itemIndex) => {
+    console.log(itemIndex);
+    const updatedItems = items.filter((item, index) => index !== itemIndex);
+    setItems(updatedItems);
+    alert(`Item with name ${itemName} deleted`);
+  };
+
+  const RenderItems = ({ item }) => {
+    return (
+      <TouchableOpacity
+        style={{
+          backgroundColor: "#e2e8f0",
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginVertical: 10,
+          paddingVertical: 10,
+          paddingHorizontal: 20,
+          borderRadius: 10,
+        }}
+        onLongPress={() => {
+          confirmDeleteItem(item.itemName, items.indexOf(item));
+        }}
+      >
+        <Text>{item.itemName}</Text>
+        <View>
+          <Text style={{ textAlign: "right" }}>
+            {item.itemQuantity} {item.unitsOfMeasure} x ₹{item.itemPrice}
+          </Text>
+          <Text style={{ textAlign: "right" }}>
+            ₹{Number(item.finalAmount).toFixed(2)}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -65,6 +221,10 @@ const InvoiceCreationPage = () => {
         <View style={{ gap: 10, marginVertical: 20 }}>
           <TextInput
             placeholder="Invoice Number"
+            value={invoiceNumber}
+            onChangeText={(text) => {
+              setInvoiceNumber(text);
+            }}
             style={{
               backgroundColor: "#fff",
               paddingVertical: 15,
@@ -141,14 +301,16 @@ const InvoiceCreationPage = () => {
               borderWidth: 1,
             }}
             onPress={() => {
-              navigation.navigate("Business Edit", {
-                business: "selected business",
-              });
+              !mainBusiness
+                ? navigation.navigate("Business Creation")
+                : navigation.navigate("Business Edit", { item: mainBusiness });
             }}
           >
             <View>
               <Text style={{ color: "#000" }}>Business Info</Text>
-              <Text style={{ color: "#000" }}>Business name</Text>
+              <Text style={{ color: "#000" }}>
+                {mainBusiness ? mainBusiness.businessName : "No Business"}
+              </Text>
             </View>
             <Icon name="chevron-right" size={24} color="#000" />
           </TouchableOpacity>
@@ -167,12 +329,12 @@ const InvoiceCreationPage = () => {
               borderWidth: 1,
             }}
             onPress={() => {
-              navigation.navigate("ClientsSelection");
+              navigation.navigate("ClientsSelection", { source: "invoice" });
             }}
           >
             <View>
               <Text style={{ color: "#000" }}>Bill to</Text>
-              <Text style={{ color: "#000" }}>Client name</Text>
+              <Text style={{ color: "#000" }}>{clientEmail}</Text>
             </View>
             <Icon name="chevron-right" size={24} color="#000" />
           </TouchableOpacity>
@@ -192,7 +354,7 @@ const InvoiceCreationPage = () => {
           <View
             style={{ justifyContent: "space-between", flexDirection: "row" }}
           >
-            <Text>Items (1)</Text>
+            <Text>Items ({items.length})</Text>
             <TouchableOpacity
               style={{
                 backgroundColor: "#bfdbfe",
@@ -203,96 +365,100 @@ const InvoiceCreationPage = () => {
                 borderColor: "#3567E4",
               }}
               onPress={() => {
-                navigation.navigate("ItemsSelection");
+                navigation.navigate("ItemsSelection", { source: "invoice" });
               }}
             >
               <Text style={{ color: "#3567E4" }}>Add</Text>
             </TouchableOpacity>
           </View>
 
-          <View
-            style={{
-              backgroundColor: "#e2e8f0",
-              flexDirection: "row",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginVertical: 10,
-              paddingVertical: 10,
-              paddingHorizontal: 20,
-              borderRadius: 10,
-            }}
-          >
-            <Text>Item 1</Text>
-            <View>
-              <Text>1 x ₹10000</Text>
-              <Text>₹10000</Text>
-            </View>
-          </View>
+          {/* render the selected items */}
+          {items.map((item, index) => (
+            <RenderItems key={index} item={item} />
+          ))}
 
           <View style={{ marginTop: 20, gap: 10 }}>
             <View
               style={{ flexDirection: "row", justifyContent: "space-between" }}
             >
               <Text>Subtotal</Text>
-              <Text>₹10000</Text>
+              <Text>₹{(parseFloat(subTotal) || 0).toFixed(2)}</Text>
             </View>
-            <View
+            <Pressable
               style={{ flexDirection: "row", justifyContent: "space-between" }}
+              onPress={() => setDiscountModal(true)}
             >
               <Text>Discount</Text>
-              <TouchableOpacity>
-                <Icon
-                  name="plus"
-                  size={15}
-                  color={"#fff"}
-                  style={{
-                    padding: 5,
-                    borderRadius: 20,
-                    backgroundColor: "#000",
-                  }}
-                  onPress={() => setDiscountModal(true)}
-                />
-              </TouchableOpacity>
-            </View>
-            <View
+              {discount > 0 ? (
+                <Text>
+                  {discount}
+                  {discountType == "Percentage" ? "%" : "₹"}
+                </Text>
+              ) : (
+                <TouchableOpacity>
+                  <Icon
+                    name="plus"
+                    size={15}
+                    color={"#fff"}
+                    style={{
+                      padding: 5,
+                      borderRadius: 20,
+                      backgroundColor: "#000",
+                    }}
+                  />
+                </TouchableOpacity>
+              )}
+            </Pressable>
+            <Pressable
               style={{ flexDirection: "row", justifyContent: "space-between" }}
+              onPress={() => {
+                navigation.navigate("TaxSelection", {
+                  source: "invoice",
+                });
+              }}
             >
               <Text>Tax</Text>
-              <TouchableOpacity
-                onPress={() => {
-                  navigation.navigate("TaxSelection");
-                }}
-              >
-                <Icon
-                  name="plus"
-                  size={15}
-                  color={"#fff"}
-                  style={{
-                    padding: 5,
-                    borderRadius: 20,
-                    backgroundColor: "#000",
-                  }}
-                />
-              </TouchableOpacity>
-            </View>
-            <View
+              {taxName && taxRate > 0 ? (
+                <Text>
+                  {taxName} ({taxRate}%)
+                </Text>
+              ) : (
+                <TouchableOpacity>
+                  <Icon
+                    name="plus"
+                    size={15}
+                    color={"#fff"}
+                    style={{
+                      padding: 5,
+                      borderRadius: 20,
+                      backgroundColor: "#000",
+                    }}
+                  />
+                </TouchableOpacity>
+              )}
+            </Pressable>
+            <Pressable
               style={{ flexDirection: "row", justifyContent: "space-between" }}
+              onPress={() => setShippingModal(true)}
             >
               <Text>Shipping</Text>
-              <TouchableOpacity>
-                <Icon
-                  name="plus"
-                  size={15}
-                  color={"#fff"}
-                  style={{
-                    padding: 5,
-                    borderRadius: 20,
-                    backgroundColor: "#000",
-                  }}
-                  onPress={() => setShippingModal(true)}
-                />
-              </TouchableOpacity>
-            </View>
+              {shippingAmount > 0 ? (
+                <Text>{shippingAmount} ₹</Text>
+              ) : (
+                <TouchableOpacity>
+                  <Icon
+                    name="plus"
+                    size={15}
+                    color={"#fff"}
+                    style={{
+                      padding: 5,
+                      borderRadius: 20,
+                      backgroundColor: "#000",
+                    }}
+                  />
+                </TouchableOpacity>
+              )}
+            </Pressable>
           </View>
           <View
             style={{
@@ -304,7 +470,7 @@ const InvoiceCreationPage = () => {
             }}
           >
             <Text>Total</Text>
-            <Text>₹10000</Text>
+            <Text>₹{(parseFloat(totalAmount) || 0).toFixed(2)}</Text>
           </View>
         </View>
         {/* Signature */}
@@ -321,12 +487,14 @@ const InvoiceCreationPage = () => {
               borderWidth: 1,
             }}
             onPress={() => {
-              navigation.navigate("SignatureSelection");
+              navigation.navigate("SignatureSelection", { source: "invoice" });
             }}
           >
             <View>
               <Text style={{ color: "#000" }}>Signature</Text>
-              <Text style={{ color: "#000" }}>Add Signature</Text>
+              <Text style={{ color: "#000" }}>
+                {signatureName ? signatureName : "Add Signature"}
+              </Text>
             </View>
             <Icon name="chevron-right" size={24} color="#000" />
           </TouchableOpacity>
@@ -345,12 +513,14 @@ const InvoiceCreationPage = () => {
               borderWidth: 1,
             }}
             onPress={() => {
-              navigation.navigate("TermsSelection");
+              navigation.navigate("TermsSelection", { source: "invoice" });
             }}
           >
             <View>
               <Text style={{ color: "#000" }}>Terms & Condition</Text>
-              <Text style={{ color: "#000" }}>Add Terms & Conditions</Text>
+              <Text style={{ color: "#000" }}>
+                {terms ? terms : "Add Terms & Conditions"}
+              </Text>
             </View>
             <Icon name="chevron-right" size={24} color="#000" />
           </TouchableOpacity>
@@ -369,12 +539,14 @@ const InvoiceCreationPage = () => {
               borderWidth: 1,
             }}
             onPress={() => {
-              navigation.navigate("PaymentSelection");
+              navigation.navigate("PaymentSelection", { source: "invoice" });
             }}
           >
             <View>
               <Text style={{ color: "#000" }}>Payment Method</Text>
-              <Text style={{ color: "#000" }}>Add Payment Method</Text>
+              <Text style={{ color: "#000" }}>
+                {paymentMethod ? paymentMethod : "Add Payment Method"}
+              </Text>
             </View>
             <Icon name="chevron-right" size={24} color="#000" />
           </TouchableOpacity>
@@ -393,9 +565,12 @@ const InvoiceCreationPage = () => {
             marginTop: 10,
           }}
         >
-          <Text>Mark as</Text>
+          <Text>
+            Mark as {status === "Partially Paid" ? `₹${partiallyPaid}` : ""}
+          </Text>
+
           <TouchableOpacity onPress={() => setIsModalVisible(true)}>
-            <Text>Unpaid </Text>
+            <Text>{status} </Text>
           </TouchableOpacity>
         </View>
         <Modal
@@ -418,20 +593,19 @@ const InvoiceCreationPage = () => {
                     key={statusOption}
                     style={[
                       styles.statusButton,
-                      selectedStatus === statusOption && styles.selectedStatus,
+                      status === statusOption && styles.selectedStatus,
                     ]}
-                    onPress={() => setSelectedStatus(statusOption)}
+                    onPress={() => setStatus(statusOption)}
                   >
                     <Text
                       style={[
                         styles.statusButtonText,
-                        selectedStatus === statusOption &&
-                          styles.selectedStatusText,
+                        status === statusOption && styles.selectedStatusText,
                       ]}
                     >
                       {statusOption}
                     </Text>
-                    {selectedStatus === statusOption && (
+                    {status === statusOption && (
                       <Ionicons
                         name="checkmark-circle"
                         size={24}
@@ -440,14 +614,14 @@ const InvoiceCreationPage = () => {
                     )}
                   </TouchableOpacity>
                 ))}
-                {selectedStatus === "Partially Paid" && (
+                {status === "Partially Paid" && (
                   <View style={styles.inputContainer1}>
                     <Text style={styles.inputLabel1}>Paid Amount:</Text>
                     <TextInput
                       style={styles.input}
                       keyboardType="numeric"
-                      value={partialAmount.toString()}
-                      onChangeText={(value) => setPartialAmount(Number(value))}
+                      value={partiallyPaid.toString()}
+                      onChangeText={(value) => setPartiallyPaid(Number(value))}
                       placeholder="Enter paid amount"
                     />
                   </View>
@@ -462,7 +636,9 @@ const InvoiceCreationPage = () => {
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.saveButton}
-                  onPress={handleSave}
+                  onPress={() => {
+                    setIsModalVisible(false);
+                  }}
                 >
                   <Text style={styles.saveButtonText}>Save</Text>
                 </TouchableOpacity>
@@ -522,8 +698,8 @@ const InvoiceCreationPage = () => {
                       placeholder={`Enter ${discountType.toLowerCase()} discount`}
                       placeholderTextColor="#999"
                       keyboardType="numeric"
-                      value={discountValue}
-                      onChangeText={setDiscountValue}
+                      value={discount}
+                      onChangeText={setDiscount}
                     />
                     <Text style={styles.inputSuffix}>
                       {discountType === "Percentage" ? "%" : "$"}
@@ -532,7 +708,9 @@ const InvoiceCreationPage = () => {
 
                   <TouchableOpacity
                     style={styles.applyButton}
-                    onPress={() => {}}
+                    onPress={() => {
+                      setDiscountModal(false);
+                    }}
                     activeOpacity={0.8}
                   >
                     <Text style={styles.applyButtonText}>Apply Discount</Text>
@@ -581,7 +759,9 @@ const InvoiceCreationPage = () => {
 
                   <TouchableOpacity
                     style={styles.applyButton2}
-                    onPress={() => {}}
+                    onPress={() => {
+                      setShippingModal(false);
+                    }}
                     activeOpacity={0.8}
                   >
                     <Text style={styles.applyButtonText2}>Apply Shipping</Text>
@@ -609,10 +789,17 @@ const InvoiceCreationPage = () => {
               borderRadius: 10,
             }}
             onPress={() => {
-              navigation.navigate("Invoice Preview");
+              navigation.navigate("Invoice Preview", { source: "invoice" });
             }}
           >
-            <Text style={{ color: "#3567E4", fontSize: 18 }}>Preview</Text>
+            <Text
+              style={{ color: "#3567E4", fontSize: 18 }}
+              onPress={() => {
+                navigation.navigate("Invoice Preview");
+              }}
+            >
+              Preview
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={{
@@ -623,9 +810,7 @@ const InvoiceCreationPage = () => {
               paddingHorizontal: 50,
               borderRadius: 10,
             }}
-            onPress={() => {
-              navigation.navigate("Invoice Save");
-            }}
+            onPress={handleSave}
           >
             <Text style={{ color: "#10b981", fontSize: 18 }}>Save</Text>
           </TouchableOpacity>

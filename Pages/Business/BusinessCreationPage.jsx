@@ -13,7 +13,11 @@ import {
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { MaterialIcons } from "@expo/vector-icons";
-import { insertBusiness, getBusinesses } from "../../SqlSetup/db";
+import {
+  insertBusiness,
+  getBusinesses,
+  getBusinessByName,
+} from "../../SqlSetup/db";
 
 const BusinessCreationPage = () => {
   const [businessPhoto, setBusinessPhoto] = useState(null);
@@ -58,6 +62,12 @@ const BusinessCreationPage = () => {
       businessPhoto === null
     ) {
       Alert.alert("Please fill out all fields");
+      return;
+    }
+
+    const check = await getBusinessByName(businessName);
+    if (check.length > 0) {
+      alert("Business name already exists");
       return;
     }
 

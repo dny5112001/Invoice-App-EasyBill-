@@ -21,7 +21,8 @@ import {
   deleteSignature,
 } from "../../SqlSetup/db.jsx";
 import useEstimateStore from "../../zustandStore/ZustandStore";
-import { useNavigation } from "@react-navigation/native";
+import useInvoiceStore from "../../zustandStore/InvoiceStore";
+import { useNavigation, useRoute } from "@react-navigation/native";
 
 const { height } = Dimensions.get("window");
 
@@ -48,7 +49,7 @@ const SignatureModal = ({ visible, onClose, onSave }) => {
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       quality: 1,
     });
@@ -60,7 +61,7 @@ const SignatureModal = ({ visible, onClose, onSave }) => {
 
   const captureImage = async () => {
     const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ["images"],
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       quality: 1,
     });
@@ -132,10 +133,22 @@ const SignatureModal = ({ visible, onClose, onSave }) => {
 };
 
 const SignatureSelectedPage = () => {
+  const navigation = useNavigation();
+  const route = useRoute();
+  const { source } = route.params || {}; // Get 'source' safely
+  console.log("Source:", source); // Debugging: Check what value 'source' has
+
+  const {
+    setSignatureName: setEstimateSignatureName,
+    setSignatureImage: setEstimateSignatureImage,
+  } = useEstimateStore();
+  const {
+    setSignatureName: setInvoiceSignatureName,
+    setSignatureImage: setInvoiceSignatureImage,
+  } = useInvoiceStore();
+
   const [modalVisible, setModalVisible] = useState(false);
   const [signatures, setSignatures] = useState([]);
-  const { setSignatureName, setSignatureImage } = useEstimateStore();
-  const navigation = useNavigation();
 
   useEffect(() => {
     fetchSignatures();
@@ -157,6 +170,17 @@ const SignatureSelectedPage = () => {
     fetchSignatures();
   };
 
+  const handleSignatureSelect = (signature) => {
+    if (source === "invoice") {
+      setInvoiceSignatureName(signature.signatureName);
+      setInvoiceSignatureImage(signature.signatureImage);
+    } else {
+      setEstimateSignatureName(signature.signatureName);
+      setEstimateSignatureImage(signature.signatureImage);
+    }
+    navigation.goBack();
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <Text style={styles.title}>Signatures</Text>
@@ -172,11 +196,7 @@ const SignatureSelectedPage = () => {
           <TouchableOpacity
             key={Index}
             style={styles.card}
-            onPress={() => {
-              setSignatureName(signature.signatureName);
-              setSignatureImage(signature.signatureImage);
-              navigation.goBack();
-            }}
+            onPress={() => handleSignatureSelect(signature)}
           >
             <View style={styles.signatureInfo}>
               <Image

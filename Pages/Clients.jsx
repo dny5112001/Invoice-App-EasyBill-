@@ -16,44 +16,50 @@ import { getClients, deleteClient } from "../SqlSetup/db";
 const Clients = () => {
   const navigation = useNavigation();
   const [clients, setClients] = useState([]);
+  const [filteredClients, setFilteredClients] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Fetch and initialize the items when the component mounts or screen gains focus
+  // Fetch clients from the database
   const fetchData = useCallback(async () => {
-    const fetchedClients = await getClients(); // Get items from the database
-    setClients(fetchedClients); // Update the state with the fetched items
+    const fetchedClients = await getClients();
+    setClients(fetchedClients);
+    setFilteredClients(fetchedClients); // Initially, show all clients
   }, []);
 
   useFocusEffect(
-    React.useCallback(() => {
-      // Async function inside the effect
+    useCallback(() => {
       const fetchClients = async () => {
-        await fetchData(); // Fetch data when the screen gains focus
+        await fetchData();
       };
-
-      fetchClients(); // Call the async function immediately
-    }, [fetchData]) // Re-run when fetchData changes
+      fetchClients();
+    }, [fetchData])
   );
 
   const handleSearch = (query) => {
     setSearchQuery(query);
+    if (query.trim() === "") {
+      setFilteredClients(clients);
+    } else {
+      const filtered = clients.filter(
+        (client) =>
+          client.clientName.toLowerCase().includes(query.toLowerCase()) ||
+          client.clientEmail.toLowerCase().includes(query.toLowerCase())
+      );
+      setFilteredClients(filtered);
+    }
   };
 
   const handleDelete = async (client) => {
-    // Ask for confirmation before deleting
     Alert.alert(
       "Delete Client",
       `Are you sure you want to delete the client named \n${client.clientName}?`,
       [
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
+        { text: "Cancel", style: "cancel" },
         {
           text: "Delete",
           onPress: async () => {
-            await deleteClient(client.clientEmail); // Delete the item from the database
-            fetchData(); // Re-fetch the items after deletion to update the list
+            await deleteClient(client.clientEmail);
+            fetchData();
             Alert.alert("Success", `${client.clientName} has been deleted.`);
           },
         },
@@ -69,35 +75,40 @@ const Clients = () => {
           name="dots-three-vertical"
           size={24}
           color={"#000"}
-          onPress={() => {
-            navigation.navigate("More");
-          }}
+          onPress={() => navigation.navigate("More")}
         />
       </View>
-      <TextInput placeholder="Search clients" style={styles.searchBox} />
-      <View></View>
+
+      <TextInput
+        placeholder="Search clients"
+        style={styles.searchBox}
+        value={searchQuery}
+        onChangeText={handleSearch}
+      />
+
       <TouchableOpacity
         style={styles.addNew}
-        onPress={() => {
-          navigation.navigate("ClientsCreation");
-        }}
+        onPress={() => navigation.navigate("ClientsCreation")}
       >
         <Icon name="plus" size={40} color={"white"} />
       </TouchableOpacity>
+
       <View style={styles.itemsContainer}>
         <ScrollView
           contentContainerStyle={{ gap: 20, paddingBottom: 80 }}
           showsVerticalScrollIndicator={false}
         >
-          {clients.map((client, Index) => (
-            <ClientCard
-              key={Index}
-              client={client}
-              onDelete={() => {
-                handleDelete(client);
-              }}
-            />
-          ))}
+          {filteredClients.length > 0 ? (
+            filteredClients.map((client, index) => (
+              <ClientCard
+                key={index}
+                client={client}
+                onDelete={() => handleDelete(client)}
+              />
+            ))
+          ) : (
+            <Text style={styles.noResults}>No clients found.</Text>
+          )}
         </ScrollView>
       </View>
     </View>
@@ -114,7 +125,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   container1: {
-    display: "flex",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -130,40 +140,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: "#fff",
     color: "#000",
-    elevation: 5, // Adds subtle shadow to the search box
-  },
-  categories: {
-    marginTop: 30,
-    display: "flex",
-    flexDirection: "row",
-    gap: 20,
-    overflow: "visible", // Ensures categories are not cut off in small screens
-    // paddingHorizontal: 20,
-  },
-  category: {
-    backgroundColor: "#fff",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    height: 40,
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "#ddd",
-  },
-  categoryText: {
-    fontSize: 16,
-    color: "#000",
-  },
-  selectedCategory: {
-    backgroundColor: "#ABC4FD", // Blue background for selected category
-    borderColor: "#9CB7FB",
-    borderWidth: 1,
-    // elevation: 10,
-  },
-  selectedCategoryText: {
-    color: "#fff", // White text for selected category
+    elevation: 5,
   },
   addNew: {
     position: "absolute",
@@ -178,5 +155,11 @@ const styles = StyleSheet.create({
   itemsContainer: {
     flex: 1,
     marginTop: 30,
+  },
+  noResults: {
+    textAlign: "center",
+    fontSize: 16,
+    color: "#777",
+    marginTop: 20,
   },
 });

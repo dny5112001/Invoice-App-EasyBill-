@@ -20,12 +20,15 @@ import {
   deletePaymentMethod,
 } from "../../SqlSetup/db.jsx";
 import useEstimateStore from "../../zustandStore/ZustandStore";
-import { useNavigation } from "@react-navigation/native";
+import useInvoiceStore from "../../zustandStore/InvoiceStore";
+import { useNavigation, useRoute } from "@react-navigation/native";
 
 const { height } = Dimensions.get("window");
 
 const PaymentModal = ({ visible, onClose, onSave, initialData }) => {
-  const [methodName, setMethodName] = useState(initialData?.name || "");
+  const [methodName, setMethodName] = useState(
+    initialData?.paymentMethod || ""
+  );
   const slideAnim = useRef(new Animated.Value(height)).current;
 
   useEffect(() => {
@@ -93,11 +96,17 @@ const PaymentModal = ({ visible, onClose, onSave, initialData }) => {
 };
 
 const PaymentSelectionPage = () => {
+  const navigation = useNavigation();
+  const route = useRoute();
+  const { source } = route.params || {}; // Get 'source' safely
+  console.log("Source:", source); // Debugging: Check what value 'source' has
+
+  const { setPaymentMethod: setEstimatePaymentMethod } = useEstimateStore();
+  const { setPaymentMethod: setInvoicePaymentMethod } = useInvoiceStore();
+
   const [modalVisible, setModalVisible] = useState(false);
   const [methods, setMethods] = useState([]);
   const [editingMethod, setEditingMethod] = useState(null);
-  const { setPaymentMethod } = useEstimateStore();
-  const navigation = useNavigation();
 
   useEffect(() => {
     fetchMethods();
@@ -124,6 +133,15 @@ const PaymentSelectionPage = () => {
     fetchMethods();
   };
 
+  const handlePaymentSelect = (method) => {
+    if (source === "invoice") {
+      setInvoicePaymentMethod(method.paymentMethod);
+    } else {
+      setEstimatePaymentMethod(method.paymentMethod);
+    }
+    navigation.goBack();
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <Text style={styles.title}>Payment Method</Text>
@@ -137,13 +155,9 @@ const PaymentSelectionPage = () => {
       <ScrollView showsVerticalScrollIndicator={false}>
         {methods.map((method, Index) => (
           <TouchableOpacity
-            key={method.name}
-            style={styles.card}
             key={Index}
-            onPress={() => {
-              setPaymentMethod(method.paymentMethod);
-              navigation.goBack();
-            }}
+            style={styles.card}
+            onPress={() => handlePaymentSelect(method)}
           >
             <Text style={styles.text}>{method.paymentMethod}</Text>
             <View style={styles.iconContainer}>

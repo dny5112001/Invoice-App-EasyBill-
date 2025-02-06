@@ -2,10 +2,10 @@ import * as Print from "expo-print";
 import * as FileSystem from "expo-file-system";
 import { getBusinessByName, getIndividualClient } from "../SqlSetup/db.jsx";
 
-export const generatePDF = async (estimateData) => {
+export const PdfInvoiceGenerator = async (invoiceData) => {
   try {
     const {
-      estimateNumber,
+      invoiceNumber,
       creationDate,
       dueDate,
       businessName,
@@ -23,7 +23,8 @@ export const generatePDF = async (estimateData) => {
       signatureName,
       signatureImage,
       status,
-    } = estimateData;
+      partiallyPaid,
+    } = invoiceData;
 
     // Fetch Business and Client Info
     const [businessInfo] = await getBusinessByName(businessName);
@@ -57,8 +58,15 @@ export const generatePDF = async (estimateData) => {
       )
       .join("");
 
-    // Calculate total paid (assuming it's not provided in the data)
-    const totalPaid = 0; // Replace with actual calculation if available
+    // Calculate remaining balance
+    let remainingBalance = totalAmount;
+    if (status === "Partially Paid") {
+      remainingBalance = totalAmount - partiallyPaid;
+    } else if (status === "Paid") {
+      remainingBalance = 0.0;
+    } else {
+      remainingBalance = totalAmount; // In case the status is "Unpaid" or other
+    }
 
     // Generate HTML Content
     const invoiceHTML = `
@@ -67,7 +75,7 @@ export const generatePDF = async (estimateData) => {
         <head>
           <meta charset="UTF-8" />
           <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-          <title>Estimate</title>
+          <title>Invoice</title>
           <style>
             body {
               font-family: 'Roboto', Arial, sans-serif;
@@ -83,11 +91,11 @@ export const generatePDF = async (estimateData) => {
               justify-content: space-between;
               align-items: center;
             }
-            .estimate-title {
+            .invoice-title {
               font-size: 36px;
               margin: 0;
             }
-            .estimate-details {
+            .invoice-details {
               text-align: right;
               font-size: 16px;
             }
@@ -130,7 +138,7 @@ export const generatePDF = async (estimateData) => {
               max-width: 45%;
             }
             .totals {
-              max-width: 45%;
+              max-width: 50%;
             }
             .total-row {
               display: flex;
@@ -138,6 +146,7 @@ export const generatePDF = async (estimateData) => {
               border-bottom: 1px solid #e3e3e3;
               padding: 10px 0;
               font-weight: 600;
+              gap:10px;
             }
             .grand-total {
               background-color: #1AB594;
@@ -152,17 +161,13 @@ export const generatePDF = async (estimateData) => {
               margin: 30px;
               text-align: right;
             }
-            .business-logo {
-              max-width: 100px;
-              max-height: 100px;
-            }
           </style>
         </head>
         <body>
           <div class="header">
-            <h1 class="estimate-title">ESTIMATE</h1>
-            <div class="estimate-details">
-              <div>ESTIMATE #: ${estimateNumber}</div>
+            <h1 class="invoice-title">INVOICE</h1>
+            <div class="invoice-details">
+              <div>INVOICE #: ${invoiceNumber}</div>
               <div>ISSUE DATE: ${new Date(
                 creationDate
               ).toLocaleDateString()}</div>
@@ -172,7 +177,6 @@ export const generatePDF = async (estimateData) => {
 
           <div class="address-section">
             <div class="address-block">
-             
               <div>${businessInfo.businessName}</div>
               <div>${businessInfo.businessAddressLine1}</div>
               <div>${businessInfo.businessAddressLine2}</div>
@@ -212,7 +216,6 @@ export const generatePDF = async (estimateData) => {
               <div>${paymentMethod}</div>
               <div style="font-weight: 800;margin-top:10px">Status:</div>
               <div>${status}</div>
-              
             </div>
             <div class="totals">
               <div class="total-row">
@@ -220,8 +223,10 @@ export const generatePDF = async (estimateData) => {
                 <div>₹${subTotal.toFixed(2)}</div>
               </div>
               <div class="total-row">
-                <div>DISCOUNT (${discountType})</div>
-                <div>₹${discount}</div>
+                <div>DISCOUNT ${
+                  discountType == "Percentage" ? "(%)" : "(₹)"
+                }</div>
+                <div>${discount}</div>
               </div>
               <div class="total-row">
                 <div>TAX (${taxName} - ${taxRate}%)</div>
@@ -231,11 +236,16 @@ export const generatePDF = async (estimateData) => {
                 <div>SHIPPING</div>
                 <div>₹${shippingAmount}</div>
               </div>
-              <div class="total-row grand-total">
-                <div>TOTAL</div>
-                <div>₹${totalAmount}</div>
+              <div class="total-row">
+                <div>PARTIALLY PAID</div>
+               <div>₹${
+                 status === "Partially Paid" ? partiallyPaid.toFixed(2) : "0.00"
+               }</div>
               </div>
-             
+              <div class="total-row grand-total">
+                <div>BALANCE :</div>
+                <div>₹${remainingBalance.toFixed(2)}</div>
+              </div>
             </div>
           </div>
 
@@ -256,20 +266,10 @@ export const generatePDF = async (estimateData) => {
       </html>
     `;
 
-    // Generate PDF file
     const { uri } = await Print.printToFileAsync({
       html: invoiceHTML,
       base64: false,
     });
-
-    console.log("PDF generated successfully:", uri);
-
-    // Ensure the file exists
-    const fileInfo = await FileSystem.getInfoAsync(uri);
-    if (!fileInfo.exists) {
-      throw new Error("Generated PDF file does not exist");
-    }
-
     return uri;
   } catch (error) {
     console.error("Error generating PDF:", error);

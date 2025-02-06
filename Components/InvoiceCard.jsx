@@ -1,65 +1,158 @@
-import React, { useState } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
-  Modal,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  TextInput,
+  Modal,
   ScrollView,
+  Alert,
+  TextInput,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import {
+  updateInvoiceStatus,
+  deleteInvoice,
+  getIndividualClient,
+} from "../SqlSetup/db"; // Ensure these are correctly imported
 
-const InvoiceCard = ({ name, amount, date, status, invoiceNo, paidAmount }) => {
+const InvoiceCard = ({
+  clientEmail,
+  amount,
+  invoiceNumber,
+  creationDate,
+  duedate,
+  initialStatus,
+  partiallyPaid,
+  refreshData, // ✅ Receive refresh function to refresh the list after updates
+}) => {
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [selectedStatus, setSelectedStatus] = useState(status);
+  const [status, setStatus] = useState(initialStatus || "Unpaid");
   const [partialAmount, setPartialAmount] = useState(
-    status === "Partially Paid" ? paidAmount : 0
+    status === "Partially Paid" ? partiallyPaid : 0
   );
+  const [clientName, setClientName] = useState(null); // Store client's name
+  const navigation = useNavigation();
 
+  // Get the status color based on the status value
   const getStatusColor = () => {
-    switch (selectedStatus) {
+    switch (status) {
       case "Paid":
-        return "#16A34A";
+        return "#16A34A"; // Green for Paid
       case "Partially Paid":
-        return "#CA8A04";
+        return "#CA8A04"; // Yellow for Partially Paid
       case "Unpaid":
-        return "#DC2626";
+        return "#DC2626"; // Red for Unpaid
+      case "Overdue":
+        return "#9E2A2B"; // Dark Red for Overdue
       default:
-        return "#6B7280";
+        return "#6B7280"; // Default gray
     }
   };
 
+  // Fetch Client data based on the email
+  const fetchClient = useCallback(async () => {
+    if (clientEmail) {
+      const clientDetails = await getIndividualClient(clientEmail);
+      setClientName(clientDetails[0]?.clientName || "Unknown Client");
+    }
+  }, [clientEmail]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchClient(); // Fetch client data whenever screen is focused
+    }, [fetchClient])
+  );
+
+  // Function to update invoice status
+  const handleSave = async (newStatus) => {
+    setStatus(newStatus);
+    setIsModalVisible(false);
+    if (newStatus === "Partially Paid") {
+      await updateInvoiceStatus(invoiceNumber, newStatus, partialAmount);
+    } else {
+      await updateInvoiceStatus(invoiceNumber, newStatus);
+    }
+    refreshData(); // Refresh the data after updating
+  };
+
+  // Format the creation date of the invoice
   const formatDate = (dateString) => {
+    if (!dateString) return "N/A";
     const options = { year: "numeric", month: "short", day: "numeric" };
     return new Date(dateString).toLocaleDateString(undefined, options);
   };
 
-  const handleSave = () => {
-    // Handle saving the updated status and partial amount here
-    console.log("Updated Status:", selectedStatus);
-    if (selectedStatus === "Partially Paid") {
-      console.log("Partial Amount:", partialAmount);
+  // Function to check overdue status
+  const checkOverdueStatus = () => {
+    const currentDate = new Date();
+    const dueDate = new Date(duedate);
+    if (currentDate > dueDate && status === "Unpaid") {
+      setStatus("Overdue");
+      updateInvoiceStatus(invoiceNumber, "Overdue");
     }
-    setIsModalVisible(false);
+  };
+
+  useEffect(() => {
+    checkOverdueStatus();
+  }, [duedate, status, invoiceNumber]); // Trigger check on changes to due date or status
+
+  // Function to handle invoice deletion
+  const deleteInvoiceHandler = async () => {
+    Alert.alert(
+      "Delete Invoice",
+      "Are you sure you want to delete this invoice?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Delete",
+          onPress: async () => {
+            try {
+              await deleteInvoice(invoiceNumber); // Ensure the deleteInvoice function is implemented
+              refreshData();
+            } catch (error) {
+              console.error("Error deleting invoice:", error);
+              alert("Error deleting invoice:", error);
+            }
+          },
+          style: "destructive",
+        },
+      ]
+    );
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.content1}>
-        <Text style={styles.name}>{name}</Text>
-        <Text style={styles.amount}>₹ {amount.toLocaleString()}</Text>
+    <TouchableOpacity
+      style={styles.container}
+      onLongPress={deleteInvoiceHandler}
+      onPress={() => navigation.navigate("Invoice Editing", { invoiceNumber })}
+    >
+      <View style={styles.content}>
+        <Text style={styles.clientName}>{clientName}</Text>
+        <Text style={styles.amount}>
+          ₹ {amount ? amount.toLocaleString() : "0"}
+        </Text>
         <Text style={[styles.statusText, { color: getStatusColor() }]}>
-          {selectedStatus === "Paid"
+          {status === "Paid"
             ? "Fully Paid"
-            : selectedStatus === "Partially Paid"
+            : status === "Partially Paid"
             ? `₹ ${partialAmount.toLocaleString()} Paid`
-            : "Unpaid"}
+            : status === "Unpaid"
+            ? "Unpaid"
+            : status === "Overdue"
+            ? "Overdue"
+            : ""}
         </Text>
       </View>
-      <View style={styles.content2}>
-        <Text style={styles.invoiceNo}>{invoiceNo}</Text>
-        <Text style={styles.date}>{formatDate(date)}</Text>
+      <View style={styles.content}>
+        <Text style={styles.invoiceNumber}>
+          Invoice No: {invoiceNumber || "N/A"}
+        </Text>
+        <Text style={styles.date}>{formatDate(creationDate)}</Text>
         <TouchableOpacity
           style={[
             styles.btn,
@@ -71,10 +164,12 @@ const InvoiceCard = ({ name, amount, date, status, invoiceNo, paidAmount }) => {
           onPress={() => setIsModalVisible(true)}
         >
           <Text style={[styles.btntxt, { color: getStatusColor() }]}>
-            {selectedStatus}
+            {status}
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Modal for updating invoice status */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -89,31 +184,33 @@ const InvoiceCard = ({ name, amount, date, status, invoiceNo, paidAmount }) => {
                 <Ionicons name="close" size={24} color="#6B7280" />
               </TouchableOpacity>
             </View>
-            <ScrollView style={styles.modalBody}>
+            <ScrollView
+              style={styles.modalBody}
+              showsVerticalScrollIndicator={false}
+            >
               {["Paid", "Partially Paid", "Unpaid"].map((statusOption) => (
                 <TouchableOpacity
                   key={statusOption}
                   style={[
                     styles.statusButton,
-                    selectedStatus === statusOption && styles.selectedStatus,
+                    status === statusOption && styles.selectedStatus,
                   ]}
-                  onPress={() => setSelectedStatus(statusOption)}
+                  onPress={() => handleSave(statusOption)}
                 >
                   <Text
                     style={[
                       styles.statusButtonText,
-                      selectedStatus === statusOption &&
-                        styles.selectedStatusText,
+                      status === statusOption && styles.selectedStatusText,
                     ]}
                   >
                     {statusOption}
                   </Text>
-                  {selectedStatus === statusOption && (
+                  {status === statusOption && (
                     <Ionicons name="checkmark-circle" size={24} color="white" />
                   )}
                 </TouchableOpacity>
               ))}
-              {selectedStatus === "Partially Paid" && (
+              {status === "Partially Paid" && (
                 <View style={styles.inputContainer}>
                   <Text style={styles.inputLabel}>Paid Amount:</Text>
                   <TextInput
@@ -133,14 +230,17 @@ const InvoiceCard = ({ name, amount, date, status, invoiceNo, paidAmount }) => {
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+              <TouchableOpacity
+                style={styles.saveButton}
+                onPress={() => handleSave(status)}
+              >
                 <Text style={styles.saveButtonText}>Save</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
-    </View>
+    </TouchableOpacity>
   );
 };
 
@@ -158,17 +258,11 @@ const styles = StyleSheet.create({
     elevation: 1,
     marginBottom: 10,
   },
-  content1: {
+  content: {
     justifyContent: "space-between",
     gap: 10,
-    alignItems: "flex-start",
   },
-  content2: {
-    justifyContent: "space-between",
-    gap: 10,
-    alignItems: "flex-end",
-  },
-  name: {
+  clientName: {
     fontSize: 16,
     fontWeight: "bold",
   },
@@ -179,7 +273,7 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 12,
   },
-  invoiceNo: {
+  invoiceNumber: {
     fontSize: 12,
     color: "#6B7280",
   },
@@ -191,8 +285,8 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     paddingHorizontal: 10,
     borderRadius: 15,
-    alignItems: "center",
     borderWidth: 1,
+    alignItems: "center",
   },
   btntxt: {
     fontSize: 12,
@@ -210,7 +304,7 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingHorizontal: 20,
     paddingBottom: 30,
-    height: "60%",
+    height: "50%",
   },
   modalHeader: {
     flexDirection: "row",

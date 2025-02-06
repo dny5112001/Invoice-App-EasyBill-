@@ -19,6 +19,7 @@ import {
   insertSignature,
   getSignatures,
   deleteSignature,
+  getSignatureByName,
 } from "../../SqlSetup/db.jsx";
 
 const { height } = Dimensions.get("window");
@@ -69,11 +70,21 @@ const SignatureModal = ({ visible, onClose, onSave }) => {
   };
 
   const handleSave = async () => {
-    if (signatureImage && signatureName) {
-      await insertSignature(signatureName, signatureImage);
-      onSave();
-      setSignatureImage(null);
-      setSignatureName("");
+    try {
+      if (signatureImage && signatureName) {
+        const check = await getSignatureByName(signatureName);
+        if (check.length > 0) {
+          alert("Signature already exists");
+          return;
+        }
+        await insertSignature(signatureName, signatureImage);
+        onSave();
+        setSignatureImage(null);
+        setSignatureName("");
+      }
+    } catch (error) {
+      console.error("Error saving signature:", error);
+      alert("An error occurred while saving the signature. Please try again.");
     }
   };
 

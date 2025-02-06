@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   FlatList,
   ScrollView,
@@ -10,101 +10,59 @@ import {
 } from "react-native";
 import Icon from "react-native-vector-icons/Entypo";
 import EstimateCard from "../Components/EstimateCard";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { getEstimates } from "../SqlSetup/db";
 
 const Estimate = () => {
   const navigation = useNavigation();
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
+  const [estimates, setEstimates] = useState([]);
+  const [filteredEstimates, setFilteredEstimates] = useState([]);
 
   const categories = ["All", "Pending", "Approved", "Overdue", "Cancel"];
-  const data = [
-    {
-      id: "1",
-      clientName: "John Doe",
-      amount: 5000,
-      estimateNumber: "EST-001",
-      date: "2023-05-15",
-      initialStatus: "Pending",
-    },
-    {
-      id: "2",
-      clientName: "Jane Smith",
-      amount: 7500,
-      estimateNumber: "EST-002",
-      date: "2023-05-16",
-      initialStatus: "Approved",
-    },
-    {
-      id: "3",
-      clientName: "Bob Johnson",
-      amount: 3000,
-      estimateNumber: "EST-003",
-      date: "2023-05-17",
-      initialStatus: "Cancel",
-    },
-    {
-      id: "4",
-      clientName: "Alice Brown",
-      amount: 6000,
-      estimateNumber: "EST-004",
-      date: "2023-05-18",
-      initialStatus: "Pending",
-    },
-    {
-      id: "5",
-      clientName: "Charlie Wilson",
-      amount: 4500,
-      estimateNumber: "EST-005",
-      date: "2023-05-19",
-      initialStatus: "Approved",
-    },
-    {
-      id: "6",
-      clientName: "Diana Miller",
-      amount: 8000,
-      estimateNumber: "EST-006",
-      date: "2023-05-20",
-      initialStatus: "Pending",
-    },
-    {
-      id: "7",
-      clientName: "Edward Davis",
-      amount: 5500,
-      estimateNumber: "EST-007",
-      date: "2023-05-21",
-      initialStatus: "Cancel",
-    },
-    {
-      id: "8",
-      clientName: "Fiona Taylor",
-      amount: 7000,
-      estimateNumber: "EST-008",
-      date: "2023-05-22",
-      initialStatus: "Approved",
-    },
-  ];
 
-  const filteredData = data.filter((item) => {
-    const categoryMatch =
-      selectedCategory === "All" || item.initialStatus === selectedCategory;
-    const searchMatch =
-      item.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.estimateNumber.toLowerCase().includes(searchQuery.toLowerCase());
-    return categoryMatch && searchMatch;
-  });
+  const fetchEstimate = async () => {
+    const estimatesData = await getEstimates();
+    setEstimates(estimatesData);
+  };
 
-  const renderItem = useCallback(
-    ({ item }) => (
-      <EstimateCard
-        clientName={item.clientName}
-        amount={item.amount}
-        estimateNumber={item.estimateNumber}
-        date={item.date}
-        initialStatus={item.initialStatus}
-      />
-    ),
-    []
+  // ✅ Fetch data every time the screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      fetchEstimate();
+    }, [])
+  );
+
+  // ✅ Filtering Logic
+  const filterEstimates = () => {
+    let filtered = estimates;
+
+    // Filter by category
+    if (selectedCategory !== "All") {
+      filtered = filtered.filter(
+        (estimate) => estimate.status === selectedCategory
+      );
+    }
+
+    // Filter by search query
+    if (searchQuery) {
+      const lowercasedQuery = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (estimate) =>
+          estimate.clientEmail.toLowerCase().includes(lowercasedQuery) ||
+          estimate.estimateNumber.toLowerCase().includes(lowercasedQuery)
+      );
+    }
+
+    setFilteredEstimates(filtered);
+  };
+
+  // ✅ Apply filters when estimates, category, or search query changes
+  useFocusEffect(
+    useCallback(() => {
+      filterEstimates();
+    }, [selectedCategory, searchQuery, estimates])
   );
 
   return (
@@ -156,9 +114,19 @@ const Estimate = () => {
       <FlatList
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
-        data={filteredData}
-        renderItem={renderItem}
-        keyExtractor={(item) => item.id}
+        data={filteredEstimates}
+        renderItem={({ item }) => (
+          <EstimateCard
+            clientEmail={item.clientEmail}
+            amount={item.totalAmount}
+            estimateNumber={item.estimateNumber}
+            creationDate={item.creationDate}
+            duedate={item.dueDate}
+            initialStatus={item.status}
+            refreshData={fetchEstimate} // ✅ Pass refresh function
+          />
+        )}
+        keyExtractor={(item) => item.estimateNumber}
         initialNumToRender={5}
         windowSize={10}
         maxToRenderPerBatch={5}
@@ -175,7 +143,6 @@ const Estimate = () => {
     </View>
   );
 };
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,

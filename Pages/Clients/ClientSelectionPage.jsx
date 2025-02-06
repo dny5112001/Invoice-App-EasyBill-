@@ -8,40 +8,64 @@ import {
 } from "react-native";
 import Icon from "react-native-vector-icons/MaterialIcons";
 import { getClients } from "../../SqlSetup/db.jsx";
-import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import {
+  useFocusEffect,
+  useNavigation,
+  useRoute,
+} from "@react-navigation/native";
 import useEstimateStore from "../../zustandStore/ZustandStore";
-
-// Sample data for clients
+import useInvoiceStore from "../../zustandStore/InvoiceStore.js";
 
 const ClientSelectionPage = () => {
-  const { setClientEmail } = useEstimateStore();
+  const { setClientEmail: setEstimateClientEmail } = useEstimateStore();
+  const { setClientEmail: setInvoiceClientEmail } = useInvoiceStore();
   const [clients, setClients] = useState([]);
   const navigation = useNavigation();
-  // Fetch and initialize the items when the component mounts or screen gains focus
+
+  const route = useRoute();
+  console.log("Route Params:", route.params); // Debugging
+  const { source } = route.params || {}; // Safe fallback for undefined values
+  console.log("Source:", source); // Debugging
+
+  // Fetch and initialize the clients when the screen gains focus
   const fetchData = useCallback(async () => {
-    const fetchedClients = await getClients(); // Get items from the database
-    setClients(fetchedClients); // Update the state with the fetched items
+    const fetchedClients = await getClients();
+    setClients(fetchedClients);
   }, []);
 
   useFocusEffect(
     React.useCallback(() => {
-      // Async function inside the effect
-      const fetchClients = async () => {
-        await fetchData(); // Fetch data when the screen gains focus
-      };
-
-      fetchClients(); // Call the async function immediately
-    }, [fetchData]) // Re-run when fetchData changes
+      fetchData();
+    }, [fetchData])
   );
+
+  const handleClientSelect = (clientEmail) => {
+    if (source === "invoice") {
+      console.log("Updating Invoice Store with:", clientEmail);
+      setInvoiceClientEmail(clientEmail);
+    } else {
+      console.log("Updating Estimate Store with:", clientEmail);
+      setEstimateClientEmail(clientEmail);
+    }
+
+    console.log(
+      "Current Estimate Client:",
+      useEstimateStore.getState().clientEmail
+    );
+    console.log(
+      "Current Invoice Client:",
+      useInvoiceStore.getState().clientEmail
+    );
+
+    navigation.goBack();
+  };
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Add Client</Text>
       </View>
 
-      {/* Create New Client Section */}
       <View style={styles.createSection}>
         <Text style={styles.createText}>Create New Client</Text>
         <TouchableOpacity
@@ -54,17 +78,13 @@ const ClientSelectionPage = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Client List Section */}
       <Text style={styles.listTitle}>Client List</Text>
       <ScrollView style={styles.scrollContainer}>
         {clients.map((client) => (
           <TouchableOpacity
             key={client.clientEmail}
             style={styles.clientCard}
-            onPress={() => {
-              setClientEmail(client.clientEmail);
-              navigation.goBack();
-            }}
+            onPress={() => handleClientSelect(client.clientEmail)}
           >
             <View style={styles.clientInfo}>
               <View style={styles.textContainer}>
@@ -90,23 +110,14 @@ const ClientSelectionPage = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingTop: 30,
-  },
+  container: { flex: 1, paddingTop: 30 },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     padding: 16,
   },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-  },
-  iconButton: {
-    padding: 8,
-  },
+  headerTitle: { fontSize: 24, fontWeight: "bold" },
   createSection: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -121,21 +132,14 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  createText: {
-    fontSize: 20,
-    fontWeight: "bold",
-  },
+  createText: { fontSize: 20, fontWeight: "bold" },
   createButton: {
-    backgroundColor: "#1E1E1E", // Use a consistent color
+    backgroundColor: "#1E1E1E",
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
   },
-  createButtonText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "600",
-  },
+  createButtonText: { color: "white", fontSize: 16, fontWeight: "600" },
   listTitle: {
     fontSize: 24,
     fontWeight: "bold",
@@ -143,9 +147,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 30,
   },
-  scrollContainer: {
-    marginBottom: 100, // Adding bottom space to avoid content overlap
-  },
+  scrollContainer: { marginBottom: 100 },
   clientCard: {
     backgroundColor: "white",
     margin: 16,
@@ -161,22 +163,10 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  clientInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  textContainer: {
-    marginLeft: 12,
-  },
-  clientName: {
-    fontSize: 18,
-    fontWeight: "500",
-  },
-  clientPhone: {
-    fontSize: 14,
-    color: "#666",
-    marginTop: 2,
-  },
+  clientInfo: { flexDirection: "row", alignItems: "center" },
+  textContainer: { marginLeft: 12 },
+  clientName: { fontSize: 18, fontWeight: "500" },
+  clientPhone: { fontSize: 14, color: "#666", marginTop: 2 },
 });
 
 export default ClientSelectionPage;

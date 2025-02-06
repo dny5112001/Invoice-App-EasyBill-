@@ -1,4 +1,8 @@
-import { useFocusEffect } from "@react-navigation/native";
+import {
+  useFocusEffect,
+  useNavigation,
+  useRoute,
+} from "@react-navigation/native";
 import React, { useCallback, useState } from "react";
 import {
   StyleSheet,
@@ -13,18 +17,36 @@ import {
 import Icon from "react-native-vector-icons/MaterialIcons";
 import { getItems } from "../../SqlSetup/db";
 import useEstimateStore from "../../zustandStore/ZustandStore";
+import useInvoiceStore from "../../zustandStore/InvoiceStore.js";
+
 const ItemsSelectionPage = () => {
-  const { items, setItems } = useEstimateStore();
+  const { setItems: setEstimateItems } = useEstimateStore();
+  const { items: estimateItems } = useEstimateStore();
+  const { setItems: setInvoiceItems } = useInvoiceStore();
+  const { items: invoiceItems } = useInvoiceStore();
+
   const [modalVisible, setModalVisible] = useState(false);
   const [itemList, setItemList] = useState([]);
   const [editIndex, setEditIndex] = useState(null);
+  const navigation = useNavigation();
+  const route = useRoute();
+  const { source } = route.params || {}; // Get source parameter (default to empty object)
+
+  const [itemName, setItemName] = useState("");
+  const [itemPrice, setitemPrice] = useState(0);
+  const [unitsOfMeasure, setUnitsOfMeasure] = useState("");
+  const [itemQuantity, setItemQuantity] = useState(0);
+  const [discount, setDiscount] = useState(0);
+  const [taxPercentage, setTaxPercentage] = useState(0);
+  const [itemDescription, setItemDescription] = useState("");
 
   const clearInputs = () => {
     setItemName("");
-    setItemPrice("");
-    setItemQuantity("");
-    setDiscount("");
-    setTaxPercentage("");
+    setitemPrice(0);
+    setUnitsOfMeasure("");
+    setItemQuantity(0);
+    setDiscount(0);
+    setTaxPercentage(0);
     setItemDescription("");
     setModalVisible(false);
   };
@@ -36,7 +58,6 @@ const ItemsSelectionPage = () => {
 
   useFocusEffect(
     React.useCallback(() => {
-      // Async function inside the effect
       const fetchItems = async () => {
         await fetchData(); // Fetch data when the screen gains focus
       };
@@ -44,14 +65,6 @@ const ItemsSelectionPage = () => {
       fetchItems(); // Call the async function immediately
     }, [fetchData]) // Re-run when fetchData changes
   );
-
-  const [itemName, setItemName] = useState("");
-  const [itemPrice, setitemPrice] = useState(0);
-  const [unitsOfMeasure, setUnitsOfMeasure] = useState("");
-  const [itemQuantity, setItemQuantity] = useState(0);
-  const [discount, setDiscount] = useState(0);
-  const [taxPercentage, setTaxPercentage] = useState(0);
-  const [itemDescription, setItemDescription] = useState("");
 
   const load_OpenModal = (item) => {
     setItemName(item.itemName || "");
@@ -69,18 +82,7 @@ const ItemsSelectionPage = () => {
     const discountedAmount = Amount * (1 - 0.01 * discount); // Applying discount
     const finalAmount = discountedAmount * (1 + 0.01 * taxPercentage); // Applying tax
 
-    console.log(
-      itemName,
-      itemPrice,
-      itemQuantity,
-      unitsOfMeasure,
-      discount,
-      taxPercentage,
-      itemDescription,
-      finalAmount
-    );
-
-    const newData = {
+    const newItem = {
       itemName,
       itemPrice,
       itemQuantity,
@@ -90,11 +92,16 @@ const ItemsSelectionPage = () => {
       itemDescription,
       finalAmount,
     };
-    setItems([...items, newData]);
-    setModalVisible(false);
+
+    if (source === "invoice") {
+      setInvoiceItems([...invoiceItems, newItem]);
+    } else {
+      setEstimateItems([...estimateItems, newItem]);
+    }
+
+    clearInputs(); // Clear inputs after saving
   };
 
-  // console.log(items);
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -108,8 +115,7 @@ const ItemsSelectionPage = () => {
         <TouchableOpacity
           style={styles.createButton}
           onPress={() => {
-            clearInputs();
-            setModalVisible(true);
+            navigation.navigate("ItemsCreation");
           }}
         >
           <Text style={styles.createButtonText}>Add Item</Text>
@@ -168,7 +174,6 @@ const ItemsSelectionPage = () => {
               keyboardType="numeric"
               style={styles.input}
             />
-
             <TextInput
               placeholder="Units of Measure"
               value={unitsOfMeasure}
@@ -380,5 +385,4 @@ const styles = StyleSheet.create({
     color: "#3567E4", // Green text for cancel action
   },
 });
-
 export default ItemsSelectionPage;

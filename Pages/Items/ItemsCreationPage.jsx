@@ -1,7 +1,7 @@
 import { StyleSheet, Text, TouchableOpacity, View, Alert } from "react-native";
 import React, { useState } from "react";
 import { TextInput } from "react-native-gesture-handler";
-import { insertItem } from "../../SqlSetup/db"; // Import the database functions
+import { insertItem, getIndividualItem } from "../../SqlSetup/db"; // Import the database functions
 
 const ItemsCreationPage = () => {
   // Define state variables to hold input values
@@ -19,6 +19,14 @@ const ItemsCreationPage = () => {
     }
 
     try {
+      const result = await getIndividualItem(itemName);
+      console.log(result);
+      if (result.length > 0) {
+        // Show an alert if the item already exists in the database
+        Alert.alert("Error", "Item already exists");
+        return;
+      }
+
       // Insert the new item into the database
       await insertItem(
         itemName,

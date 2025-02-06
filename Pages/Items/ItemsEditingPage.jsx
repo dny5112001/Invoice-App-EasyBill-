@@ -2,7 +2,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import React, { useState, useEffect } from "react";
 import { TextInput } from "react-native-gesture-handler";
 import { useNavigation, useRoute } from "@react-navigation/native";
-import { updateItem } from "../../SqlSetup/db";
+import { getIndividualItem, updateItem } from "../../SqlSetup/db";
 
 const ItemsEditingPage = () => {
   // Accessing the item from the navigation route parameters
@@ -17,22 +17,38 @@ const ItemsEditingPage = () => {
   const [itemDescription, setItemDescription] = useState(item.itemDescription);
 
   // Optionally, you can handle saving the updated item
-  const handleSave = () => {
-    // You can handle the save functionality, like sending the updated data to the database
-    const result = updateItem(
-      itemName,
-      itemPrice,
-      unitsOfMeasure,
-      itemDescription
-    );
-    if (result) {
-      alert("Item updated successfully");
-    } else {
-      alert("Failed to update item");
-    }
-    navigation.goBack();
+  const handleSave = async () => {
+    try {
+      if (
+        itemName !== "" ||
+        itemPrice !== "" ||
+        unitsOfMeasure !== "" ||
+        itemDescription !== ""
+      ) {
+        const check = await getIndividualItem(itemName);
+        if (check.length > 0) {
+          alert("Item with this name already exists");
+          return;
+        }
+      }
 
-    // Here you can update the database or state, then navigate back to the previous screen
+      // You can handle the save functionality, like sending the updated data to the database
+      const result = await updateItem(
+        itemName,
+        itemPrice,
+        unitsOfMeasure,
+        itemDescription
+      );
+      if (result) {
+        alert("Item updated successfully");
+      } else {
+        alert("Failed to update item");
+      }
+      navigation.goBack();
+    } catch (error) {
+      console.error("Error updating item:", error);
+      alert("An error occurred while updating the item. Please try again.");
+    }
   };
 
   return (
@@ -44,7 +60,7 @@ const ItemsEditingPage = () => {
           style={styles.input}
           placeholderTextColor="#999"
           value={itemName}
-          onChangeText={setItemName} // Update state when input changes
+          readOnly
         />
         <TextInput
           placeholder="Item Price"

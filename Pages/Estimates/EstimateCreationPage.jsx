@@ -20,7 +20,11 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import Icon from "react-native-vector-icons/Entypo";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
-import { getMainBusiness } from "../../SqlSetup/db";
+import {
+  getMainBusiness,
+  getIndividualEstimate,
+  saveEstimateToDb,
+} from "../../SqlSetup/db";
 import useEstimateStore from "../../zustandStore/ZustandStore";
 
 const EstimateCreationPage = () => {
@@ -55,6 +59,7 @@ const EstimateCreationPage = () => {
     shippingAmount,
     setShippingAmount,
     items,
+    setItems,
     subTotal,
     totalAmount,
     saveEstimate,
@@ -69,13 +74,45 @@ const EstimateCreationPage = () => {
     return date.toISOString().split("T")[0]; // Format: YYYY-MM-DD
   };
 
-  const handleSave = () => {
-    // Handle saving the updated status and partial amount here
-    console.log("Updated Status:", selectedStatus);
-    if (selectedStatus === "Partially Paid") {
-      console.log("Partial Amount:", partialAmount);
+  const handleSave = async () => {
+    if (estimateNumber === "") {
+      alert("Please enter an estimate number");
+      return;
     }
-    setIsModalVisible(false);
+    const checkEstimate = await getIndividualEstimate(estimateNumber);
+    if (checkEstimate.length > 0) {
+      alert("Estimate already exists");
+      return;
+    }
+    const estimateData = {
+      estimateNumber,
+      creationDate,
+      dueDate,
+      businessName,
+      clientEmail,
+      items,
+      subTotal,
+      discountType,
+      discount,
+      taxName,
+      taxRate,
+      shippingAmount,
+      totalAmount,
+      signatureName,
+      signatureImage,
+      terms,
+      paymentMethod,
+      status,
+    };
+
+    console.log(estimateData);
+
+    const saveData = await saveEstimateToDb(estimateData);
+    if (saveData) {
+      alert("Estimate saved successfully");
+    } else {
+      alert("Failed to save estimate");
+    }
   };
 
   const { width } = Dimensions.get("window");
@@ -106,7 +143,7 @@ const EstimateCreationPage = () => {
     }, [fetchMainBusiness])
   );
 
-  const confirmDeleteItem = (itemName) => {
+  const confirmDeleteItem = (itemName, itemIndex) => {
     Alert.alert(
       "Delete Item",
       "Are you sure you want to delete this item?",
@@ -117,7 +154,7 @@ const EstimateCreationPage = () => {
         },
         {
           text: "Delete",
-          onPress: () => deleteItem(itemName),
+          onPress: () => deleteItem(itemName, itemIndex),
           style: "destructive",
         },
       ],
@@ -125,8 +162,10 @@ const EstimateCreationPage = () => {
     );
   };
 
-  const deleteItem = (itemName) => {
-    // Logic to delete the item from the list
+  const deleteItem = (itemName, itemIndex) => {
+    console.log(itemIndex);
+    const updatedItems = items.filter((item, index) => index !== itemIndex);
+    setItems(updatedItems);
     alert(`Item with name ${itemName} deleted`);
   };
 
@@ -144,7 +183,7 @@ const EstimateCreationPage = () => {
           borderRadius: 10,
         }}
         onLongPress={() => {
-          confirmDeleteItem();
+          confirmDeleteItem(item.itemName, items.indexOf(item));
         }}
       >
         <Text>{item.itemName}</Text>
@@ -152,7 +191,9 @@ const EstimateCreationPage = () => {
           <Text style={{ textAlign: "right" }}>
             {item.itemQuantity} {item.unitsOfMeasure} x ₹{item.itemPrice}
           </Text>
-          <Text style={{ textAlign: "right" }}>₹{item.finalAmount}</Text>
+          <Text style={{ textAlign: "right" }}>
+            ₹{Number(item.finalAmount).toFixed(2)}
+          </Text>
         </View>
       </TouchableOpacity>
     );
@@ -435,7 +476,9 @@ const EstimateCreationPage = () => {
           >
             <View>
               <Text style={{ color: "#000" }}>Signature</Text>
-              <Text style={{ color: "#000" }}>Add Signature</Text>
+              <Text style={{ color: "#000" }}>
+                {signatureName ? signatureName : "Add Signature"}
+              </Text>
             </View>
             <Icon name="chevron-right" size={24} color="#000" />
           </TouchableOpacity>
@@ -459,7 +502,9 @@ const EstimateCreationPage = () => {
           >
             <View>
               <Text style={{ color: "#000" }}>Terms & Condition</Text>
-              <Text style={{ color: "#000" }}>Add Terms & Conditions</Text>
+              <Text style={{ color: "#000" }}>
+                {terms ? terms : "Add Terms & Conditions"}
+              </Text>
             </View>
             <Icon name="chevron-right" size={24} color="#000" />
           </TouchableOpacity>
@@ -483,7 +528,9 @@ const EstimateCreationPage = () => {
           >
             <View>
               <Text style={{ color: "#000" }}>Payment Method</Text>
-              <Text style={{ color: "#000" }}>Add Payment Method</Text>
+              <Text style={{ color: "#000" }}>
+                {paymentMethod ? paymentMethod : "Add Payment Method"}
+              </Text>
             </View>
             <Icon name="chevron-right" size={24} color="#000" />
           </TouchableOpacity>
@@ -648,8 +695,7 @@ const EstimateCreationPage = () => {
               borderRadius: 10,
             }}
             onPress={() => {
-              // saveEstimate();
-              navigation.navigate("Invoice Save");
+              handleSave();
             }}
           >
             <Text style={{ color: "#10b981", fontSize: 18 }}>Save</Text>

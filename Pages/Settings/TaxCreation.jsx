@@ -18,6 +18,7 @@ import {
   getTaxes,
   updateTax,
   deleteTax,
+  getTaxByName,
 } from "../../SqlSetup/db.jsx";
 
 const { height } = Dimensions.get("window");
@@ -44,14 +45,23 @@ const TaxModal = ({ visible, onClose, onSave, initialData }) => {
   }, [visible]);
 
   const handleSave = async () => {
-    if (initialData) {
-      await updateTax(initialData.taxName, taxRate);
-    } else {
-      await insertTax(taxName, taxRate);
+    try {
+      const check = await getTaxByName(taxName);
+      if (check.length > 0) {
+        alert(`Tax named ${taxName} already exists`);
+        return;
+      }
+      if (initialData) {
+        await updateTax(initialData.taxName, taxRate);
+      } else {
+        await insertTax(taxName, taxRate);
+      }
+      onSave();
+      setTaxName("");
+      setTaxRate("");
+    } catch (error) {
+      console.error(error);
     }
-    onSave();
-    setTaxName("");
-    setTaxRate("");
   };
 
   return (

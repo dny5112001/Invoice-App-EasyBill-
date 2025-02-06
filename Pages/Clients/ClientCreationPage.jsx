@@ -8,7 +8,7 @@ import {
   Alert,
 } from "react-native";
 import React, { useState } from "react";
-import { insertClient } from "../../SqlSetup/db";
+import { getClientByEmail, insertClient } from "../../SqlSetup/db";
 
 const ClientCreationPage = () => {
   const [clientName, setClientName] = React.useState("");
@@ -40,6 +40,11 @@ const ClientCreationPage = () => {
     }
 
     try {
+      const check = await getClientByEmail(clientEmail);
+      if (check.length > 0) {
+        Alert.alert("Error", "Client with this email already exists");
+        return;
+      }
       await insertClient({
         clientName,
         clientEmail,

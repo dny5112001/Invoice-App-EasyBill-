@@ -11,7 +11,6 @@ import {
   Animated,
   Dimensions,
   TouchableWithoutFeedback,
-  Pressable,
 } from "react-native";
 import Icon from "react-native-vector-icons/MaterialIcons";
 import {
@@ -21,13 +20,16 @@ import {
   deleteTax,
 } from "../../SqlSetup/db.jsx";
 import useEstimateStore from "../../zustandStore/ZustandStore";
-import { useNavigation } from "@react-navigation/native";
+import useInvoiceStore from "../../zustandStore/InvoiceStore";
+import { useNavigation, useRoute } from "@react-navigation/native";
 
 const { height } = Dimensions.get("window");
 
 const TaxModal = ({ visible, onClose, onSave, initialData }) => {
-  const [taxName, setTaxName] = useState(initialData?.name || "");
-  const [taxRate, setTaxRate] = useState(initialData?.rate || "");
+  const [taxName, setTaxName] = useState(initialData?.taxName || "");
+  const [taxRate, setTaxRate] = useState(
+    initialData?.taxRate?.toString() || ""
+  );
   const slideAnim = useRef(new Animated.Value(height)).current;
 
   useEffect(() => {
@@ -102,7 +104,15 @@ const TaxModal = ({ visible, onClose, onSave, initialData }) => {
 
 const TaxSelectedPage = () => {
   const navigation = useNavigation();
-  const { setTaxName, setTaxRate } = useEstimateStore();
+  const route = useRoute();
+  const { source } = route.params || {}; // Get 'source' param safely
+  console.log("Source:", source); // Debugging: Check what value 'source' has
+
+  const { setTaxName: setEstimateTaxName, setTaxRate: setEstimateTaxRate } =
+    useEstimateStore();
+  const { setTaxName: setInvoiceTaxName, setTaxRate: setInvoiceTaxRate } =
+    useInvoiceStore();
+
   const [modalVisible, setModalVisible] = useState(false);
   const [taxes, setTaxes] = useState([]);
   const [editingTax, setEditingTax] = useState(null);
@@ -132,6 +142,17 @@ const TaxSelectedPage = () => {
     fetchTaxes();
   };
 
+  const handleTaxSelect = (tax) => {
+    if (source === "invoice") {
+      setInvoiceTaxName(tax.taxName);
+      setInvoiceTaxRate(tax.taxRate);
+    } else {
+      setEstimateTaxName(tax.taxName);
+      setEstimateTaxRate(tax.taxRate);
+    }
+    navigation.goBack();
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <Text style={styles.title}>Create Tax</Text>
@@ -147,11 +168,7 @@ const TaxSelectedPage = () => {
           <TouchableOpacity
             style={styles.card}
             key={Index}
-            onPress={() => {
-              setTaxName(tax.taxName);
-              setTaxRate(tax.taxRate);
-              navigation.goBack();
-            }}
+            onPress={() => handleTaxSelect(tax)}
           >
             <View
               style={{ flexDirection: "row", alignItems: "center", gap: 10 }}

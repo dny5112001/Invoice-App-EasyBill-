@@ -93,6 +93,31 @@ const createTables = async () => {
             status TEXT
           );
 
+
+         CREATE TABLE IF NOT EXISTS invoices(
+          invoiceNumber TEXT PRIMARY KEY,
+          creationDate TEXT,
+          dueDate TEXT,
+          businessName TEXT,
+          clientEmail TEXT,
+          items TEXT,
+          subTotal REAL,
+          discountType TEXT,
+          discount REAL,
+          taxName TEXT,
+          taxRate TEXT,
+          shippingAmount REAL,
+          totalAmount REAL,
+          signatureName TEXT,
+          signatureImage BLOB,
+          terms TEXT,
+          paymentMethod TEXT,
+          status TEXT,
+          partiallyPaid REAL  -- Remove the trailing comma here
+);
+
+
+
     `);
 
     console.log("Tables created successfully");
@@ -176,6 +201,8 @@ const saveEstimateToDb = async (estimateData) => {
       status
     );
 
+    return result;
+
     console.log("Estimate saved successfully:", result);
   } catch (error) {
     console.error("Error saving estimate:", error);
@@ -190,6 +217,328 @@ const getEstimates = async () => {
   } catch (error) {
     console.error("Error fetching estimates:", error);
     return [];
+  }
+};
+
+const getIndividualEstimate = async (estimateNumber) => {
+  try {
+    const result = await (
+      await db
+    ).getAllAsync(
+      "SELECT * FROM estimates WHERE estimateNumber = ?",
+      estimateNumber
+    );
+    return result;
+  } catch (err) {
+    console.error("Error fetching individual estimate:", err);
+  }
+};
+
+const updateEstimate = async (estimateNumber, estimateData) => {
+  const {
+    creationDate,
+    dueDate,
+    businessName,
+    clientEmail,
+    items,
+    subTotal,
+    discountType,
+    discount,
+    taxName,
+    taxRate,
+    shippingAmount,
+    totalAmount,
+    signatureName,
+    signatureImage,
+    terms,
+    paymentMethod,
+    status,
+  } = estimateData;
+
+  try {
+    const result = await (
+      await db
+    ).runAsync(
+      `UPDATE estimates SET 
+        creationDate = ?, 
+        dueDate = ?, 
+        businessName = ?, 
+        clientEmail = ?, 
+        items = ?, 
+        subTotal = ?, 
+        discountType = ?, 
+        discount = ?, 
+        taxName = ?, 
+        taxRate = ?, 
+        shippingAmount = ?, 
+        totalAmount = ?, 
+        signatureName = ?, 
+        signatureImage = ?, 
+        terms = ?, 
+        paymentMethod = ?, 
+        status = ? 
+      WHERE estimateNumber = ?`,
+      creationDate.toISOString(),
+      dueDate.toISOString(),
+      businessName,
+      clientEmail,
+      JSON.stringify(items),
+      subTotal,
+      discountType,
+      discount,
+      taxName,
+      taxRate,
+      shippingAmount,
+      totalAmount,
+      signatureName,
+      signatureImage,
+      terms,
+      paymentMethod,
+      status,
+      estimateNumber
+    );
+    console.log("Estimate updated successfully:", result);
+    return result;
+  } catch (error) {
+    console.error("Error updating estimate:", error);
+  }
+};
+
+const updateEstimateStatus = async (estimateNumber, status) => {
+  try {
+    const result = await (
+      await db
+    ).runAsync(
+      `UPDATE estimates SET status = ? WHERE estimateNumber = ?`,
+      status,
+      estimateNumber
+    );
+    console.log("Estimate status updated successfully:", result);
+  } catch (error) {
+    console.error("Error updating estimate status:", error);
+  }
+};
+
+const deleteEstimate = async (estimateNumber) => {
+  try {
+    const result = await (
+      await db
+    ).runAsync(
+      "DELETE FROM estimates WHERE estimateNumber = ?",
+      estimateNumber
+    );
+    console.log("Estimate deleted successfully:", result);
+  } catch (error) {
+    console.error("Error deleting estimate:", error);
+  }
+};
+
+// Invoice table
+
+const saveInvoiceToDb = async (invoiceData) => {
+  try {
+    const {
+      invoiceNumber,
+      creationDate,
+      dueDate,
+      businessName,
+      clientEmail,
+      items,
+      subTotal,
+      discountType,
+      discount,
+      taxName,
+      taxRate,
+      shippingAmount,
+      totalAmount,
+      signatureName,
+      signatureImage,
+      terms,
+      paymentMethod,
+      status,
+      partiallyPaid,
+    } = invoiceData;
+
+    const query = `
+    INSERT INTO invoices (
+     invoiceNumber,
+      creationDate,
+      dueDate,
+      businessName,
+      clientEmail,
+      items,
+      subTotal,
+      discountType,
+      discount,
+      taxName,
+      taxRate,
+      shippingAmount,
+      totalAmount,
+      signatureName,
+      signatureImage,
+      terms,
+      paymentMethod,
+      status,
+      partiallyPaid
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+
+    const result = await (
+      await db
+    ).runAsync(
+      query,
+      invoiceNumber,
+      creationDate.toISOString(),
+      dueDate.toISOString(),
+      businessName,
+      clientEmail,
+      JSON.stringify(items),
+      subTotal,
+      discountType,
+      discount,
+      taxName,
+      taxRate,
+      shippingAmount,
+      totalAmount,
+      signatureName,
+      signatureImage,
+      terms,
+      paymentMethod,
+      status,
+      partiallyPaid
+    );
+
+    console.log("Invoice saved successfully:", result);
+    return result;
+  } catch (error) {
+    console.error("Error saving invoice to database:", error);
+  }
+};
+
+const getInvoices = async () => {
+  try {
+    const result = await (await db).getAllAsync("SELECT * FROM invoices");
+    console.log("Invoices retrieved successfully:", result);
+    return result;
+  } catch (error) {
+    console.error("Error retrieving invoices from database:", error);
+  }
+};
+
+const getIndividualInvoice = async (invoiceNumber) => {
+  console.log(invoiceNumber);
+  try {
+    const result = await (
+      await db
+    ).getAllAsync(
+      "SELECT * FROM invoices WHERE invoiceNumber = ?",
+      invoiceNumber
+    );
+    console.log("Individual invoice retrieved successfully:", result);
+    return result;
+  } catch (err) {
+    console.error("Error fetching individual invoice:", err);
+  }
+};
+
+const deleteInvoice = async (invoiceNumber) => {
+  try {
+    const result = await (
+      await db
+    ).runAsync("DELETE FROM invoices WHERE invoiceNumber = ?", invoiceNumber);
+    console.log("Invoice deleted successfully:", result);
+  } catch (error) {
+    console.error("Error deleting invoice:", error);
+  }
+};
+
+const updateInvoiceStatus = async (invoiceNumber, status, partiallyPaid) => {
+  try {
+    const result = await (
+      await db
+    ).runAsync(
+      `UPDATE invoices SET status = ?, partiallyPaid = ? WHERE invoiceNumber = ?`,
+      status,
+      partiallyPaid,
+      invoiceNumber
+    );
+    console.log("Invoice status updated successfully:", result);
+  } catch (error) {
+    console.error("Error updating invoice status:", error);
+  }
+};
+
+const updateInvoice = async (invoiceNumber, invoiceData) => {
+  const {
+    creationDate,
+    dueDate,
+    businessName,
+    clientEmail,
+    items,
+    subTotal,
+    discountType,
+    discount,
+    taxName,
+    taxRate,
+    shippingAmount,
+    totalAmount,
+    signatureName,
+    signatureImage,
+    terms,
+    paymentMethod,
+    status,
+    partiallyPaid,
+  } = invoiceData;
+
+  try {
+    const result = await (
+      await db
+    ).runAsync(
+      `UPDATE invoices SET 
+        creationDate = ?, 
+        dueDate = ?, 
+        businessName = ?, 
+        clientEmail = ?, 
+        items = ?, 
+        subTotal = ?, 
+        discountType = ?, 
+        discount = ?, 
+        taxName = ?, 
+        taxRate = ?, 
+        shippingAmount = ?, 
+        totalAmount = ?, 
+        signatureName = ?, 
+        signatureImage = ?, 
+        terms = ?, 
+        paymentMethod = ?, 
+        status = ?, 
+        partiallyPaid = ? 
+      WHERE invoiceNumber = ?`,
+      creationDate.toISOString(),
+      dueDate.toISOString(),
+      businessName,
+      clientEmail,
+      JSON.stringify(items),
+      subTotal,
+      discountType,
+      discount,
+      taxName,
+      taxRate,
+      shippingAmount,
+      totalAmount,
+      signatureName,
+      signatureImage,
+      terms,
+      paymentMethod,
+      status,
+      partiallyPaid,
+      invoiceNumber
+    );
+
+    console.log("Invoice updated successfully:", result);
+    return result;
+  } catch (error) {
+    console.error("Error updating invoice:", error);
   }
 };
 
@@ -260,8 +609,29 @@ const updateItem = async (
     console.error("Error updating item:", error);
   }
 };
-
+const getIndividualItem = async (itemName) => {
+  try {
+    const result = await (
+      await db
+    ).getAllAsync("SELECT * FROM items WHERE itemName = ?", itemName);
+    return result;
+  } catch (error) {
+    console.error("Error fetching individual item:", error);
+    return null;
+  }
+};
 // Client tables
+const getClientByEmail = async (clientEmail) => {
+  try {
+    const result = await (
+      await db
+    ).getAllAsync("SELECT * FROM clients WHERE clientEmail = ?", clientEmail);
+    return result;
+  } catch (error) {
+    console.error("Error fetching client by email:", error);
+    return null;
+  }
+};
 
 const insertClient = async (client) => {
   try {
@@ -548,9 +918,19 @@ const deleteTax = async (taxName) => {
     console.error("Error deleting tax:", error);
   }
 };
+const getTaxByName = async (taxName) => {
+  try {
+    const result = await (
+      await db
+    ).getAllAsync("SELECT * FROM tax WHERE taxName = ?", taxName);
+    return result;
+  } catch (error) {
+    console.error("Error fetching tax by name:", error);
+    return null;
+  }
+};
 
 //payment tables
-
 const insertPaymentMethod = async (paymentMethod) => {
   try {
     await (await db).runAsync("INSERT INTO payments VALUES (?)", paymentMethod);
@@ -596,6 +976,20 @@ const deletePaymentMethod = async (paymentMethod) => {
 };
 
 //Terms table
+const getPaymentMethod = async (paymentMethod) => {
+  try {
+    const result = await (
+      await db
+    ).getAllAsync(
+      "SELECT * FROM payments WHERE paymentMethod = ?",
+      paymentMethod
+    );
+    return result;
+  } catch (error) {
+    console.error("Error fetching payment method:", error);
+    return null;
+  }
+};
 
 const insertTerms = async (termsAndConditions) => {
   try {
@@ -643,6 +1037,21 @@ const deleteTerms = async (termsAndConditions) => {
     console.log("Terms deleted successfully");
   } catch (error) {
     console.error("Error deleting terms:", error);
+  }
+};
+
+const getTermsByCondition = async (termsAndConditions) => {
+  try {
+    const result = await (
+      await db
+    ).getAllAsync(
+      "SELECT * FROM termsAndConditions WHERE termsAndConditions = ?",
+      termsAndConditions
+    );
+    return result;
+  } catch (error) {
+    console.error("Error fetching terms by condition:", error);
+    return null;
   }
 };
 
@@ -700,6 +1109,20 @@ const deleteSignature = async (signatureName) => {
 };
 
 // Initialize the database and create tables
+const getSignatureByName = async (signatureName) => {
+  try {
+    const result = await (
+      await db
+    ).getAllAsync(
+      "SELECT * FROM signatures WHERE signatureName = ?",
+      signatureName
+    );
+    return result;
+  } catch (error) {
+    console.error("Error fetching signature by name:", error);
+    return null;
+  }
+};
 const initializeDatabase = async () => {
   await createTables();
 };
@@ -741,4 +1164,20 @@ export {
   saveEstimateToDb,
   getEstimates,
   getBusinessByName,
+  getIndividualEstimate,
+  updateEstimate,
+  deleteEstimate,
+  updateEstimateStatus,
+  saveInvoiceToDb,
+  getInvoices,
+  getIndividualInvoice,
+  deleteInvoice,
+  updateInvoiceStatus,
+  updateInvoice,
+  getIndividualItem,
+  getClientByEmail,
+  getTaxByName,
+  getPaymentMethod,
+  getTermsByCondition,
+  getSignatureByName,
 };

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   FlatList,
   ScrollView,
@@ -9,85 +9,59 @@ import {
   View,
 } from "react-native";
 import Icon from "react-native-vector-icons/Entypo";
-import InvoiceCard from "../Components/InvoiceCard";
-import { useNavigation } from "@react-navigation/native";
+import InvoiceCard from "../Components/InvoiceCard"; // Assuming you have this component
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { getInvoices } from "../SqlSetup/db"; // Assuming this is your function for fetching invoices
 
 const Invoice = () => {
   const navigation = useNavigation();
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
+  const [invoices, setInvoices] = useState([]);
+  const [filteredInvoices, setFilteredInvoices] = useState([]);
 
-  const categories = ["All", "Unpaid", "Partially Paid", "Overdue", "Paid"];
-  const data = [
-    {
-      id: "1",
-      name: "Deepak Yadav",
-      amount: 1000,
-      date: "2023-05-15",
-      status: "Paid",
-      invoiceNo: "INV001",
-      paidAmount: 1000,
-    },
-    {
-      id: "2",
-      name: "Priya Sharma",
-      amount: 1500,
-      date: "2023-05-16",
-      status: "Partially Paid",
-      invoiceNo: "INV002",
-      paidAmount: 750,
-    },
-    {
-      id: "3",
-      name: "Rahul Gupta",
-      amount: 2000,
-      date: "2023-05-17",
-      status: "Unpaid",
-      invoiceNo: "INV003",
-      paidAmount: 0,
-    },
-    {
-      id: "4",
-      name: "Anita Patel",
-      amount: 1200,
-      date: "2023-05-18",
-      status: "Paid",
-      invoiceNo: "INV004",
-      paidAmount: 1200,
-    },
-    {
-      id: "5",
-      name: "Vikram Singh",
-      amount: 1800,
-      date: "2023-05-19",
-      status: "Partially Paid",
-      invoiceNo: "INV005",
-      paidAmount: 900,
-    },
-  ];
+  const categories = ["All", "Paid", "Partially Paid", "Unpaid", "Overdue"];
 
-  const filteredData = data.filter((item) => {
-    const categoryMatch =
-      selectedCategory === "All" || item.status === selectedCategory;
-    const searchMatch =
-      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.invoiceNo.toLowerCase().includes(searchQuery.toLowerCase());
-    return categoryMatch && searchMatch;
-  });
+  const fetchInvoices = async () => {
+    const invoicesData = await getInvoices();
+    setInvoices(invoicesData);
+  };
 
-  const renderItem = useCallback(
-    ({ item }) => (
-      <InvoiceCard
-        name={item.name}
-        amount={item.amount}
-        date={item.date}
-        status={item.status}
-        invoiceNo={item.invoiceNo}
-        paidAmount={item.paidAmount}
-      />
-    ),
-    []
+  // ✅ Fetch data every time the screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      fetchInvoices();
+    }, [])
   );
+
+  // ✅ Filtering Logic
+  const filterInvoices = () => {
+    let filtered = invoices;
+
+    // Filter by category
+    if (selectedCategory !== "All") {
+      filtered = filtered.filter(
+        (invoice) => invoice.status === selectedCategory
+      );
+    }
+
+    // Filter by search query
+    if (searchQuery) {
+      const lowercasedQuery = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (invoice) =>
+          invoice.clientEmail.toLowerCase().includes(lowercasedQuery) ||
+          invoice.invoiceNumber.toLowerCase().includes(lowercasedQuery)
+      );
+    }
+
+    setFilteredInvoices(filtered);
+  };
+
+  // ✅ Apply filters when invoices, category, or search query changes
+  useEffect(() => {
+    filterInvoices();
+  }, [selectedCategory, searchQuery, invoices]);
 
   return (
     <View style={styles.container}>
@@ -138,9 +112,20 @@ const Invoice = () => {
       <FlatList
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
-        data={filteredData}
-        renderItem={renderItem}
-        keyExtractor={(item) => item.id}
+        data={filteredInvoices}
+        renderItem={({ item }) => (
+          <InvoiceCard
+            clientEmail={item.clientEmail}
+            amount={item.totalAmount}
+            partiallyPaid={item.partiallyPaid}
+            invoiceNumber={item.invoiceNumber}
+            creationDate={item.creationDate}
+            duedate={item.dueDate}
+            initialStatus={item.status}
+            refreshData={fetchInvoices} // ✅ Pass refresh function
+          />
+        )}
+        keyExtractor={(item) => item.invoiceNumber}
         initialNumToRender={5}
         windowSize={10}
         maxToRenderPerBatch={5}
@@ -164,7 +149,6 @@ const styles = StyleSheet.create({
     paddingTop: 50,
     paddingHorizontal: 20,
     marginBottom: 20,
-    // backgroundColor: "#fff",
   },
   container1: {
     flexDirection: "row",

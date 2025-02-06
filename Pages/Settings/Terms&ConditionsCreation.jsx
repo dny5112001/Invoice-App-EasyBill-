@@ -18,6 +18,7 @@ import {
   getTerms,
   updateTerms,
   deleteTerms,
+  getTermsByCondition,
 } from "../../SqlSetup/db.jsx";
 
 const { height } = Dimensions.get("window");
@@ -45,16 +46,26 @@ const TermsModal = ({ visible, onClose, onSave, initialData }) => {
   }, [visible]);
 
   const handleSave = async () => {
-    if (initialData) {
-      // Update existing term
-      console.log("Updating term:", initialData);
-      await updateTerms(description, initialData.termsAndConditions); // Pass the old term and the new description
-    } else {
-      // Insert new term
-      await insertTerms(description);
+    try {
+      const check = await getTermsByCondition(description);
+      if (check.length > 0) {
+        alert("Terms and Conditions already exist");
+        return;
+      }
+      if (initialData) {
+        // Update existing term
+        console.log("Updating term:", initialData);
+        await updateTerms(description, initialData.termsAndConditions); // Pass the old term and the new description
+      } else {
+        // Insert new term
+        await insertTerms(description);
+      }
+      onSave();
+      setDescription(""); // Clear input after saving
+    } catch (error) {
+      console.error("Error saving terms and conditions:", error);
+      alert("An error occurred while saving. Please try again.");
     }
-    onSave();
-    setDescription(""); // Clear input after saving
   };
 
   return (
@@ -263,13 +274,14 @@ const styles = StyleSheet.create({
   },
   textArea: {
     width: "100%",
+    height: 50,
     borderWidth: 1,
     borderColor: "#ddd",
     borderRadius: 10,
     paddingHorizontal: 15,
     marginBottom: 15,
     fontSize: 16,
-    textAlignVertical: "top",
+    textAlignVertical: "center",
   },
   saveBtn: {
     backgroundColor: "#3567E4",

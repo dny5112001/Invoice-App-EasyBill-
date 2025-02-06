@@ -18,6 +18,7 @@ import {
   getPaymentMethods,
   updatePaymentMethod,
   deletePaymentMethod,
+  getPaymentMethod,
 } from "../../SqlSetup/db.jsx";
 
 const { height } = Dimensions.get("window");
@@ -43,13 +44,32 @@ const PaymentModal = ({ visible, onClose, onSave, initialData }) => {
   }, [visible]);
 
   const handleSave = async () => {
-    if (initialData) {
-      await updatePaymentMethod(initialData.paymentMethod, methodName);
-    } else {
-      await insertPaymentMethod(methodName);
+    if (methodName === "") {
+      alert("Please enter a name for the payment method");
+      return;
     }
-    onSave();
-    setMethodName("");
+    try {
+      // Check if the payment method already exists
+      const existingMethod = await getPaymentMethod(methodName);
+      if (existingMethod.length > 0) {
+        alert("Payment method already exists");
+        return;
+      }
+
+      // Insert or update the payment method
+      if (initialData) {
+        await updatePaymentMethod(initialData.paymentMethod, methodName);
+      } else {
+        await insertPaymentMethod(methodName);
+      }
+
+      // Close the modal and reset the input field
+      onSave();
+      setMethodName("");
+    } catch (error) {
+      console.error("Error handling payment method:", error);
+      alert("An error occurred while saving the payment method.");
+    }
   };
 
   return (
