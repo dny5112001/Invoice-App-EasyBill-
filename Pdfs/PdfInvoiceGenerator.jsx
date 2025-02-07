@@ -4,6 +4,7 @@ import { getBusinessByName, getIndividualClient } from "../SqlSetup/db.jsx";
 
 export const PdfInvoiceGenerator = async (invoiceData) => {
   try {
+    console.log(invoiceData);
     const {
       invoiceNumber,
       creationDate,
@@ -26,7 +27,8 @@ export const PdfInvoiceGenerator = async (invoiceData) => {
       partiallyPaid,
     } = invoiceData;
 
-    // Fetch Business and Client Info
+    console.log(invoiceData);
+
     const [businessInfo] = await getBusinessByName(businessName);
     const [clientInfo] = await getIndividualClient(clientEmail);
 

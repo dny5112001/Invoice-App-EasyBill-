@@ -26,9 +26,12 @@ export const generatePDF = async (estimateData) => {
     } = estimateData;
 
     // Fetch Business and Client Info
-    const [businessInfo] = await getBusinessByName(businessName);
-    const [clientInfo] = await getIndividualClient(clientEmail);
+    const businessInfodata = await getBusinessByName(businessName);
+    const businessInfo = businessInfodata[0];
+    console.log(businessInfo);
 
+    const clientInfoData = await getIndividualClient(clientEmail);
+    const clientInfo = clientInfoData[0];
     // Convert signature image to base64
     let signatureBase64 = "";
     if (signatureImage) {
@@ -233,7 +236,7 @@ export const generatePDF = async (estimateData) => {
               </div>
               <div class="total-row grand-total">
                 <div>TOTAL</div>
-                <div>₹${totalAmount}</div>
+                <div>₹${Number(totalAmount).toFixed(2)}</div>
               </div>
              
             </div>

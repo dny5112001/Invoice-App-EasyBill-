@@ -238,7 +238,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     marginBottom: 15,
     fontSize: 16,
-    textAlignVertical: "top",
+    textAlignVertical: "center",
+    height: 50,
   },
   saveBtn: {
     backgroundColor: "#3567E4",

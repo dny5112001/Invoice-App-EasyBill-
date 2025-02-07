@@ -1123,6 +1123,129 @@ const getSignatureByName = async (signatureName) => {
     return null;
   }
 };
+
+const getInvoicesPerMonth = async () => {
+  try {
+    const result = await (
+      await db
+    ).getAllAsync(
+      `SELECT substr(creationDate, 1, 7) as month, COUNT(*) as invoiceCount 
+       FROM invoices 
+       GROUP BY month 
+       ORDER BY month ASC`
+    );
+    return result;
+  } catch (error) {
+    console.error("Error fetching invoices per month:", error);
+    return null;
+  }
+};
+
+const getTopClients = async () => {
+  try {
+    // Fetch top 5 clients with most invoices
+    const result = await (
+      await db
+    ).getAllAsync(
+      `SELECT clientEmail, COUNT(*) as invoiceCount 
+       FROM invoices 
+       GROUP BY clientEmail 
+       ORDER BY invoiceCount DESC 
+       LIMIT 5`
+    );
+
+    // Fetch client details using getClientByEmail
+    const clientsWithNames = await Promise.all(
+      result.map(async (client) => {
+        const clientDetails = await getClientByEmail(client.clientEmail);
+        return {
+          clientName: clientDetails?.[0]?.clientName || "Unknown Client", // Fetch clientName from client details
+          invoiceCount: client.invoiceCount, // Include invoice count
+        };
+      })
+    );
+
+    return clientsWithNames;
+  } catch (error) {
+    console.error("Error fetching top clients:", error);
+    return null;
+  }
+};
+
+const getTopItems = async () => {
+  try {
+    const result = await (
+      await db
+    ).getAllAsync(
+      `SELECT itemName, COUNT(*) as itemCount 
+       FROM (
+         SELECT json_extract(value, '$.itemName') as itemName 
+         FROM invoices, json_each(items)
+       ) 
+       WHERE itemName IS NOT NULL
+       GROUP BY itemName 
+       ORDER BY itemCount DESC 
+       LIMIT 5`
+    );
+    return result;
+  } catch (error) {
+    console.error("Error fetching top items:", error);
+    return null;
+  }
+};
+
+const getDashboardMetrics = async () => {
+  try {
+    // Fetch invoice metrics with correct calculations
+    const invoiceMetrics = await (
+      await db
+    ).getFirstAsync(
+      `SELECT 
+        COUNT(invoiceNumber) as totalInvoices,
+        SUM(totalAmount) as totalSales,
+        SUM(CASE 
+            WHEN status = 'Unpaid' THEN totalAmount 
+            WHEN partiallyPaid > 0 THEN totalAmount - partiallyPaid 
+            ELSE 0 
+        END) as totalPending,
+        SUM(CASE WHEN status = 'Unpaid' THEN totalAmount ELSE 0 END) as totalUnpaid,
+        SUM(CASE WHEN status = 'Overdue' THEN totalAmount ELSE 0 END) as totalOverdue
+       FROM invoices`
+    );
+
+    // Fetch total unique clients
+    const clientMetrics = await (
+      await db
+    ).getFirstAsync(
+      `SELECT COUNT(DISTINCT clientEmail) as totalClients FROM clients`
+    );
+
+    // Fetch total unique items from the items table
+    const itemMetrics = await (
+      await db
+    ).getFirstAsync(`SELECT COUNT(DISTINCT itemName) as totalItems FROM items`);
+
+    // Calculate total earned correctly
+    const totalSales = invoiceMetrics?.totalSales || 0;
+    const totalPending = invoiceMetrics?.totalPending || 0;
+    const totalEarned = totalSales - totalPending;
+
+    return {
+      totalInvoices: invoiceMetrics?.totalInvoices || 0,
+      totalSales: totalSales,
+      totalEarned: totalEarned,
+      totalPending: totalPending,
+      totalUnpaid: invoiceMetrics?.totalUnpaid || 0,
+      totalOverdue: invoiceMetrics?.totalOverdue || 0,
+      totalClients: clientMetrics?.totalClients || 0,
+      totalItems: itemMetrics?.totalItems || 0,
+    };
+  } catch (error) {
+    console.error("Error fetching dashboard metrics:", error);
+    return null;
+  }
+};
+
 const initializeDatabase = async () => {
   await createTables();
 };
@@ -1180,4 +1303,8 @@ export {
   getPaymentMethod,
   getTermsByCondition,
   getSignatureByName,
+  getTopClients,
+  getTopItems,
+  getInvoicesPerMonth,
+  getDashboardMetrics,
 };

@@ -142,6 +142,7 @@ const InvoiceCreationPage = () => {
       if (result) {
         console.log(result);
         setMainBusiness(result[0]);
+        setBusinessName(result[0].businessName);
       }
     } catch (error) {
       console.error("Error fetching main business:", error);
