@@ -179,7 +179,7 @@ const InvoiceCreationPage = () => {
     console.log(itemIndex);
     const updatedItems = items.filter((item, index) => index !== itemIndex);
     setItems(updatedItems);
-    alert(`Item with name ${itemName} deleted`);
+    alert(`Item with name ₹{itemName} deleted`);
   };
 
   const RenderItems = ({ item }) => {
@@ -211,6 +211,38 @@ const InvoiceCreationPage = () => {
       </TouchableOpacity>
     );
   };
+
+  useFocusEffect(
+    useCallback(() => {
+      const handleBackPress = (e) => {
+        if (invoiceNumber || clientEmail || items.length > 0) {
+          e.preventDefault();
+          Alert.alert(
+            "Unsaved Changes",
+            "You have unsaved changes. Are you sure you want to leave without saving?",
+            [
+              { text: "Cancel", style: "cancel" },
+              {
+                text: "Leave",
+                style: "destructive",
+                onPress: () => {
+                  useInvoiceStore.setState(useInvoiceStore.getInitialState()); // Reset to initial state
+                  navigation.dispatch(e.data.action);
+                },
+              },
+            ],
+            { cancelable: true }
+          );
+        }
+      };
+
+      const unsubscribe = navigation.addListener(
+        "beforeRemove",
+        handleBackPress
+      );
+      return unsubscribe;
+    }, [invoiceNumber, clientEmail, items, navigation])
+  );
 
   return (
     <SafeAreaView style={styles.container}>
@@ -391,23 +423,39 @@ const InvoiceCreationPage = () => {
             >
               <Text>Discount</Text>
               {discount > 0 ? (
-                <Text>
-                  {discount}
-                  {discountType == "Percentage" ? "%" : "₹"}
-                </Text>
-              ) : (
-                <TouchableOpacity>
-                  <Icon
-                    name="plus"
-                    size={15}
-                    color={"#fff"}
-                    style={{
-                      padding: 5,
-                      borderRadius: 20,
-                      backgroundColor: "#000",
+                <View style={{ flexDirection: "row", gap: 10 }}>
+                  <Text>
+                    {discount}
+                    {discountType == "Percentage" ? "%" : "₹"}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setDiscount(0);
                     }}
-                  />
-                </TouchableOpacity>
+                  >
+                    <Icon
+                      name="minus"
+                      size={15}
+                      color={"#fff"}
+                      style={{
+                        padding: 5,
+                        borderRadius: 20,
+                        backgroundColor: "#000",
+                      }}
+                    />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <Icon
+                  name="plus"
+                  size={15}
+                  color={"#fff"}
+                  style={{
+                    padding: 5,
+                    borderRadius: 20,
+                    backgroundColor: "#000",
+                  }}
+                />
               )}
             </Pressable>
             <Pressable
@@ -420,22 +468,39 @@ const InvoiceCreationPage = () => {
             >
               <Text>Tax</Text>
               {taxName && taxRate > 0 ? (
-                <Text>
-                  {taxName} ({taxRate}%)
-                </Text>
-              ) : (
-                <TouchableOpacity>
-                  <Icon
-                    name="plus"
-                    size={15}
-                    color={"#fff"}
-                    style={{
-                      padding: 5,
-                      borderRadius: 20,
-                      backgroundColor: "#000",
+                <View style={{ flexDirection: "row", gap: 10 }}>
+                  <Text>
+                    {taxName} ({taxRate}%)
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setTaxName("");
+                      setTaxRate(0);
                     }}
-                  />
-                </TouchableOpacity>
+                  >
+                    <Icon
+                      name="minus"
+                      size={15}
+                      color={"#fff"}
+                      style={{
+                        padding: 5,
+                        borderRadius: 20,
+                        backgroundColor: "#000",
+                      }}
+                    />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <Icon
+                  name="plus"
+                  size={15}
+                  color={"#fff"}
+                  style={{
+                    padding: 5,
+                    borderRadius: 20,
+                    backgroundColor: "#000",
+                  }}
+                />
               )}
             </Pressable>
             <Pressable
@@ -444,20 +509,36 @@ const InvoiceCreationPage = () => {
             >
               <Text>Shipping</Text>
               {shippingAmount > 0 ? (
-                <Text>{shippingAmount} ₹</Text>
-              ) : (
-                <TouchableOpacity>
-                  <Icon
-                    name="plus"
-                    size={15}
-                    color={"#fff"}
-                    style={{
-                      padding: 5,
-                      borderRadius: 20,
-                      backgroundColor: "#000",
+                <View style={{ flexDirection: "row", gap: 10 }}>
+                  <Text>{shippingAmount} ₹</Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setShippingAmount(0);
                     }}
-                  />
-                </TouchableOpacity>
+                  >
+                    <Icon
+                      name="minus"
+                      size={15}
+                      color={"#fff"}
+                      style={{
+                        padding: 5,
+                        borderRadius: 20,
+                        backgroundColor: "#000",
+                      }}
+                    />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <Icon
+                  name="plus"
+                  size={15}
+                  color={"#fff"}
+                  style={{
+                    padding: 5,
+                    borderRadius: 20,
+                    backgroundColor: "#000",
+                  }}
+                />
               )}
             </Pressable>
           </View>
@@ -567,7 +648,7 @@ const InvoiceCreationPage = () => {
           }}
         >
           <Text>
-            Mark as {status === "Partially Paid" ? `₹${partiallyPaid}` : ""}
+            Mark as {status === "Partially Paid" ? `₹₹{partiallyPaid}` : ""}
           </Text>
 
           <TouchableOpacity onPress={() => setIsModalVisible(true)}>
@@ -696,14 +777,14 @@ const InvoiceCreationPage = () => {
                   <View style={styles.inputContainer}>
                     <TextInput
                       style={styles.input}
-                      placeholder={`Enter ${discountType.toLowerCase()} discount`}
+                      placeholder={`Enter ₹ ${discountType.toLowerCase()} discount`}
                       placeholderTextColor="#999"
                       keyboardType="numeric"
                       value={discount}
                       onChangeText={setDiscount}
                     />
                     <Text style={styles.inputSuffix}>
-                      {discountType === "Percentage" ? "%" : "$"}
+                      {discountType === "Percentage" ? "%" : "₹"}
                     </Text>
                   </View>
 
@@ -755,7 +836,7 @@ const InvoiceCreationPage = () => {
                         setShippingAmount(value);
                       }}
                     />
-                    <Text style={styles.inputSuffix2}>$</Text>
+                    <Text style={styles.inputSuffix2}>₹</Text>
                   </View>
 
                   <TouchableOpacity

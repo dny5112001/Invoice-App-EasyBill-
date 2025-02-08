@@ -199,6 +199,38 @@ const EstimateCreationPage = () => {
     );
   };
 
+  useFocusEffect(
+    useCallback(() => {
+      const handleBackPress = (e) => {
+        if (estimateNumber || clientEmail || items.length > 0) {
+          e.preventDefault();
+          Alert.alert(
+            "Unsaved Changes",
+            "You have unsaved changes. Are you sure you want to leave without saving?",
+            [
+              { text: "Cancel", style: "cancel" },
+              {
+                text: "Leave",
+                style: "destructive",
+                onPress: () => {
+                  useEstimateStore.setState(useEstimateStore.getInitialState()); // Reset to initial state
+                  navigation.dispatch(e.data.action);
+                },
+              },
+            ],
+            { cancelable: true }
+          );
+        }
+      };
+
+      const unsubscribe = navigation.addListener(
+        "beforeRemove",
+        handleBackPress
+      );
+      return unsubscribe;
+    }, [estimateNumber, clientEmail, items, navigation])
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       <Text style={styles.title}>New Estimate</Text>
@@ -376,23 +408,39 @@ const EstimateCreationPage = () => {
             >
               <Text>Discount</Text>
               {discount > 0 ? (
-                <Text>
-                  {discount}
-                  {discountType == "Percentage" ? "%" : "₹"}
-                </Text>
-              ) : (
-                <TouchableOpacity>
-                  <Icon
-                    name="plus"
-                    size={15}
-                    color={"#fff"}
-                    style={{
-                      padding: 5,
-                      borderRadius: 20,
-                      backgroundColor: "#000",
+                <View style={{ flexDirection: "row", gap: 10 }}>
+                  <Text>
+                    {discount}
+                    {discountType == "Percentage" ? "%" : "₹"}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setDiscount(0);
                     }}
-                  />
-                </TouchableOpacity>
+                  >
+                    <Icon
+                      name="minus"
+                      size={15}
+                      color={"#fff"}
+                      style={{
+                        padding: 5,
+                        borderRadius: 20,
+                        backgroundColor: "#000",
+                      }}
+                    />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <Icon
+                  name="plus"
+                  size={15}
+                  color={"#fff"}
+                  style={{
+                    padding: 5,
+                    borderRadius: 20,
+                    backgroundColor: "#000",
+                  }}
+                />
               )}
             </Pressable>
             <Pressable
@@ -403,22 +451,39 @@ const EstimateCreationPage = () => {
             >
               <Text>Tax</Text>
               {taxName && taxRate > 0 ? (
-                <Text>
-                  {taxName} ({taxRate}%)
-                </Text>
-              ) : (
-                <TouchableOpacity>
-                  <Icon
-                    name="plus"
-                    size={15}
-                    color={"#fff"}
-                    style={{
-                      padding: 5,
-                      borderRadius: 20,
-                      backgroundColor: "#000",
+                <View style={{ flexDirection: "row", gap: 10 }}>
+                  <Text>
+                    {taxName} ({taxRate}%)
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setTaxName("");
+                      setTaxRate(0);
                     }}
-                  />
-                </TouchableOpacity>
+                  >
+                    <Icon
+                      name="minus"
+                      size={15}
+                      color={"#fff"}
+                      style={{
+                        padding: 5,
+                        borderRadius: 20,
+                        backgroundColor: "#000",
+                      }}
+                    />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <Icon
+                  name="plus"
+                  size={15}
+                  color={"#fff"}
+                  style={{
+                    padding: 5,
+                    borderRadius: 20,
+                    backgroundColor: "#000",
+                  }}
+                />
               )}
             </Pressable>
             <Pressable
@@ -427,20 +492,36 @@ const EstimateCreationPage = () => {
             >
               <Text>Shipping</Text>
               {shippingAmount > 0 ? (
-                <Text>{shippingAmount} ₹</Text>
-              ) : (
-                <TouchableOpacity>
-                  <Icon
-                    name="plus"
-                    size={15}
-                    color={"#fff"}
-                    style={{
-                      padding: 5,
-                      borderRadius: 20,
-                      backgroundColor: "#000",
+                <View style={{ flexDirection: "row", gap: 10 }}>
+                  <Text>{shippingAmount} ₹</Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setShippingAmount(0);
                     }}
-                  />
-                </TouchableOpacity>
+                  >
+                    <Icon
+                      name="minus"
+                      size={15}
+                      color={"#fff"}
+                      style={{
+                        padding: 5,
+                        borderRadius: 20,
+                        backgroundColor: "#000",
+                      }}
+                    />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <Icon
+                  name="plus"
+                  size={15}
+                  color={"#fff"}
+                  style={{
+                    padding: 5,
+                    borderRadius: 20,
+                    backgroundColor: "#000",
+                  }}
+                />
               )}
             </Pressable>
           </View>
