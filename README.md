@@ -2,6 +2,12 @@
 
 Easy Bill is a React Native application designed for seamless invoice generation. It allows users to create, manage, and export invoices efficiently, making billing processes easier and more organized.
 
+
+
+https://github.com/user-attachments/assets/96896a51-35f7-4570-a6e1-7aac94cacecf
+
+
+
 ## Features
 
 - Create and manage invoices
